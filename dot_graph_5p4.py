@@ -20,9 +20,6 @@ ns = [
   node_1,
 ]
 
-for n in ns:
-    graph.add_node(n.node)
-
 
 # make list of edges
 es = [
@@ -35,29 +32,21 @@ es = [
 
 
 
-# make a flygraph
-fg = FlyGraph(ns, es)
-
-
-
 
 # assign causality
-assign_se_causality(fg)
-assign_sf_causality(fg)
-assign_I_causality(fg)
+assign_se_causality(es)
+assign_sf_causality(es)
+assign_I_causality(es)
 
 # report edge flow_side
-for e in fg.es:
+for e in es:
     print(f"Edge {e.num} from {e.src} to {e.dest} has flow side: {e.flow_side}")
+
+for n in ns:
+    graph.add_node(n.node)
 
 for e in es:
     graph.add_edge(e.mk_edge())
 
-graph.write_png("graph_5p4.png") # type: ignore
-# #graph.write_pdf("o.pdf")
-
-# constrained_etypes = [
-#     "n_0",
-#     "n_1",
-#     "n_TF",
-# ]
+# graph.write_png("graph_5p4.png") # type: ignore
+graph.write_pdf("o.pdf") # type: ignore

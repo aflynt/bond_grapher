@@ -91,34 +91,14 @@ class FlyNodeONE(FlyNode):
         super().__init__(name, NODETYPE.ONE, ports=ports)
 
 
-class FlyGraph:
-    def __init__(self, ns: list[FlyNode] = [], es: list[FlyEdge] = []):
-        self.ns = ns.copy()
-        self.es = es.copy()
-
-    def assign_causality(self):
-
-        # assign causality to edges
-        for e in self.es:
-            if "SE" in e.src:
-                e.flow_side = FLOWSIDE.DEST
-            elif "SF" in e.src:
-                e.flow_side = FLOWSIDE.SRC
-            else:
-                e.flow_side = FLOWSIDE.IDK
     
 
 
-def extend_causality_to_node(node_name: str, fg: FlyGraph):
+def extend_causality_to_node(node_name: str, es: list[FlyEdge]):
 
     """
     Extend causality to connected nodes of type "0", "1", "TF"
     """
-    # get edges
-    es = fg.es
-
-    # collect edges connected to the node
-    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
 
     # check if the node is a 0, 1, or TF type
     node_type = node_name.split("_")[0]
@@ -127,17 +107,17 @@ def extend_causality_to_node(node_name: str, fg: FlyGraph):
     match node_type:
         case "0":
             print(f"Node {node_name} is of type 0")
-            assign_causality_to_nodetype_zero(node_name, fg)
+            assign_causality_to_nodetype_zero(node_name, es)
         case "1":
             print(f"Node {node_name} is of type 1")
-            assign_causality_to_nodetype_one(node_name, fg)
+            assign_causality_to_nodetype_one(node_name, es)
         case "TF":
             print(f"Node {node_name} is of type TF")
-            assign_causality_to_nodetype_tf(node_name, fg)
+            assign_causality_to_nodetype_tf(node_name, es)
         case _:
             print(f"Node {node_name} is of type: {node_type}, passing")
 
-def assign_causality_to_nodetype_tf(node_name: str, fg: FlyGraph):
+def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
     '''
     Assign causality to connected nodes of type "TF"
     '''
@@ -146,9 +126,8 @@ def assign_causality_to_nodetype_tf(node_name: str, fg: FlyGraph):
     # if one edge brings in the flow, the other edge must take it out
 
     # collect edges connected to the node
-    es = fg.es
-
     connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+
     if len(connected_edges) != 2:
         raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
 
@@ -212,13 +191,10 @@ def assign_causality_to_nodetype_tf(node_name: str, fg: FlyGraph):
 
 
 
-def assign_causality_to_nodetype_zero(node_name: str, fg: FlyGraph):
+def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
     """
     Assign causality to connected nodes of type "0"
     """
-    # get edges
-    es = fg.es
-
     # collect edges connected to the node
     connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
 
@@ -254,7 +230,7 @@ def assign_causality_to_nodetype_zero(node_name: str, fg: FlyGraph):
                     print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
-                extend_causality_to_node(ext_node, fg)
+                extend_causality_to_node(ext_node, es)
         else:
             # No strong bond found; check for a single IDK bond
             idk_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.IDK]
@@ -285,13 +261,10 @@ def assign_causality_to_nodetype_zero(node_name: str, fg: FlyGraph):
         print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
 
-def assign_causality_to_nodetype_one(node_name: str, fg: FlyGraph):
+def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
     """
     Assign causality to connected nodes of type "1"
     """
-    # get edges
-    es = fg.es
-
     # collect edges connected to the node
     connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
 
@@ -327,15 +300,12 @@ def assign_causality_to_nodetype_one(node_name: str, fg: FlyGraph):
                     print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
-                extend_causality_to_node(ext_node, fg)
+                extend_causality_to_node(ext_node, es)
     else:
         print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
 
-def assign_se_causality(fg: FlyGraph):
-
-    # get edges
-    es = fg.es
+def assign_se_causality(es: list[FlyEdge] ):
 
     # collect SE sources
     se_srcs = [e for e in es if "SE" in e.src]
@@ -356,7 +326,7 @@ def assign_se_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in dest_name:
-                extend_causality_to_node(e.dest, fg)
+                extend_causality_to_node(e.dest, es)
         
 
     # collect SE destinations
@@ -375,13 +345,11 @@ def assign_se_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in dest_name:
-                extend_causality_to_node(e.dest, fg)
+                extend_causality_to_node(e.dest, es)
 
 
-def assign_sf_causality(fg: FlyGraph):
+def assign_sf_causality(es: list[FlyEdge] ):
 
-    # get edges
-    es = fg.es
 
     # collect SF sources
     se_srcs = [e for e in es if "SF" in e.src]
@@ -402,7 +370,7 @@ def assign_sf_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in dest_name:
-                extend_causality_to_node(e.dest, fg)
+                extend_causality_to_node(e.dest, es)
         
 
     # collect SF destinations
@@ -421,12 +389,10 @@ def assign_sf_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in dest_name:
-                extend_causality_to_node(e.dest, fg)
+                extend_causality_to_node(e.dest, es)
     
-def assign_I_causality(fg: FlyGraph):
+def assign_I_causality(es: list[FlyEdge] ):
 
-    # get edges
-    es = fg.es
 
     # collect I sources
     I_source_edges = [e for e in es if "I" in e.src]
@@ -443,7 +409,7 @@ def assign_I_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in dest_name:
-                extend_causality_to_node(I_edge.dest, fg)
+                extend_causality_to_node(I_edge.dest, es)
     
     # collect I destinations
     I_dest_edges = [e for e in es if "I" in e.dest]
@@ -459,4 +425,4 @@ def assign_I_causality(fg: FlyGraph):
         # Extend causality to connected nodes of type "0", "1", "TF"
         for CT in CHK_TYPES:
             if CT in src_name:
-                extend_causality_to_node(I_edge.src, fg)
+                extend_causality_to_node(I_edge.src, es)
