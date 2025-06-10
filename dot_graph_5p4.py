@@ -52,6 +52,7 @@ fg = FlyGraph(ns, es)
 # assign causality
 assign_se_causality(fg)
 assign_sf_causality(fg)
+assign_I_causality(fg)
 
 # report edge flow_side
 for e in fg.es:

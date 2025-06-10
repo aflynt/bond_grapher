@@ -406,3 +406,40 @@ def assign_sf_causality(fg: FlyGraph):
             if CT in dest_name:
                 extend_causality_to_node(e.dest, fg)
     
+def assign_I_causality(fg: FlyGraph):
+
+    # get edges
+    es = fg.es
+
+    # collect I sources
+    I_source_edges = [e for e in es if "I" in e.src]
+
+    # assign preferred (flow side) causality to I sources
+    for I_edge in I_source_edges:
+        I_edge.flow_side = FLOWSIDE.SRC
+        print(f" [I_node]: {I_edge}")
+
+        dest_name = I_edge.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(I_edge.dest, fg)
+    
+    # collect I destinations
+    I_dest_edges = [e for e in es if "I" in e.dest]
+    # assign preferred (flow side) causality to I destinations
+    for I_edge in I_dest_edges:
+        I_edge.flow_side = FLOWSIDE.DEST
+        print(f" [I_node]: {I_edge}")
+
+        dest_name = I_edge.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(I_edge.dest, fg)
