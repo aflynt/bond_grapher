@@ -131,7 +131,7 @@ assign_se_causality(fg)
 for e in es:
     graph.add_edge(e.mk_edge())
 
-graph.write_png("pretension_tfe.png")
+graph.write_png("pretension_tfe.png") # type: ignore
 #graph.write_pdf("o.pdf")
 
 constrained_etypes = [

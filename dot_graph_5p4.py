@@ -60,7 +60,7 @@ for e in fg.es:
 for e in es:
     graph.add_edge(e.mk_edge())
 
-graph.write_png("graph_5p4.png")
+graph.write_png("graph_5p4.png") # type: ignore
 # #graph.write_pdf("o.pdf")
 
 # constrained_etypes = [
