@@ -264,6 +264,32 @@ def assign_causality_to_nodetype_zero(node_name: str, fg: FlyGraph):
 
             for ext_node in extension_list:
                 extend_causality_to_node(ext_node, fg)
+        else:
+            # No strong bond found; check for a single IDK bond
+            idk_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.IDK]
+            if len(idk_bonds) == 1:
+                strong_bond = idk_bonds[0]
+                # Assign causality: decide direction based on node_name's position
+                if node_name in strong_bond.src:
+                    strong_bond.flow_side = FLOWSIDE.SRC
+                else:
+                    strong_bond.flow_side = FLOWSIDE.DEST
+                print(f"Assigned causality: Node {node_name} now has a strong bond: {strong_bond}")
+
+                # extension_list = []
+                # # extend causality to other edges connected to the node
+                # for e in connected_edges:
+                #     if e.num != strong_bond.num:
+                #         if node_name in e.src:
+                #             extension_list.append(e.dest)
+                #         else:
+                #             extension_list.append(e.src)
+                #         print(f"Extended causality to edge: {e}")
+
+                # for ext_node in extension_list:
+                #     extend_causality_to_node(ext_node, fg)
+            # else: No strong bond and not exactly one IDK bond; do nothing or log as needed.
+
     else:
         print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
