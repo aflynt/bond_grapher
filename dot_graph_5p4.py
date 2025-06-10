@@ -33,14 +33,6 @@ es = [
     FlyEdge(5, node_1.get_name(), node_I.get_name() , pwr_to_dest=1),
 ]
 
-# add bond numbers to node ports
-for e in es:
-    src = e.src
-    dest = e.dest
-    bond_num = e.num
-    for n in ns:
-        if n.name == src or n.name == dest:
-            n.add_port(bond_num)
 
 
 # make a flygraph

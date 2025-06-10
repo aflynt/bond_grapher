@@ -53,19 +53,10 @@ class FlyNode:
     def __init__(self, name:str, type:NODETYPE, ports=[]):
         self.name = name
         self.type = type
-        self.ports = ports.copy()
         self.node = pydot.Node(self.name, shape="none", label=self.name)
-
-    def get_nports(self):
-        return len(self.ports)
-
-    def add_port(self, p):
-        if p not in self.ports:
-            self.ports.append(p)
 
     def get_name(self):
         return self.name
-
 
 class FlyNodeSE(FlyNode):
     def __init__(self, name , ports=[]):
