@@ -1,4 +1,6 @@
+import unittest
 from lib_bonds import *
+
 graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
 
 node_SF = FlyNodeSF("SF")
@@ -8,9 +10,6 @@ node_I = FlyNodeI("I")
 node_0 = FlyNodeZERO("0")
 node_1 = FlyNodeONE("1")
 
-
-# make list of nodes
-ns = [ node_SF, node_C, node_R, node_I, node_0, node_1, ]
 
 # make list of edges
 es = [
@@ -26,15 +25,19 @@ assign_se_causality(es)
 assign_sf_causality(es)
 assign_I_causality(es)
 
-# report edge flow_side
-for e in es:
-    print(f"Edge {e.num} from {e.src} to {e.dest} has flow side: {e.flow_side}")
 
-for n in ns:
-    graph.add_node(n.node)
+class Test_5p4(unittest.TestCase):
 
-for e in es:
-    graph.add_edge(e.mk_edge())
+    def test_SF(self):
 
-# graph.write_png("graph_5p4.png") # type: ignore
-graph.write_pdf("o.pdf") # type: ignore
+        # get edges with SF node as a source
+        edges_w_sf_src = [e for e in es if "SF" in e.src]
+
+        # SRC [SF] ----- DEST [*]
+        # Flow must come from source
+        for e in edges_w_sf_src:
+            self.assertEqual(e.flow_side, FLOWSIDE.SRC)
+
+
+if __name__ == '__main__':
+    unittest.main()
