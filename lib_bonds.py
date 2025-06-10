@@ -116,72 +116,7 @@ class FlyGraph:
             else:
                 e.flow_side = FLOWSIDE.IDK
     
-'''
-def extend_causality_0s(es:list[FlyEdge]):
 
-    # collect 0s
-    #e0s = [e for e in es if "n_0" in e.src or "n_0" in e.dest]
-    #for e0 in e0s:
-    #    print(f" checking e0: {e0}")
-    n0s = [ n for n in ns if "n_0" in n.get_name()]
-
-    for n0 in n0s:
-        # get edge connections
-        n0name = n0.get_name()
-
-        SBS = [] # find strong bonds
-
-        #print(f"-- CHECKIN NODE {n0}")
-        for e in [e for e in es if n0name in e.dest]:
-            if e.flow_side == FLOWSIDE.DEST:
-                SBS.append(e) # found strong bond
-
-        for e in [e for e in es if n0name in e.src]:
-            if e.flow_side == FLOWSIDE.SRC:
-                SBS.append(e) # found strong bond
-        
-        if len(SBS) > 1:
-            assert False, f"TOO MANY STRONG BONDS for n0: {n0}"
-
-        if len(SBS) == 1:
-            SB = SBS[0]
-            all_es_0s = [e for e in es if n0name in e.src or n0name in e.dest]
-            all_es_0s = [e for e in all_es_0s if e.num != SB.num]
-            #print(f" - strong bond = {SB}")
-            #print(f" - other bonds:")
-            for e in all_es_0s:
-                if n0name in e.src:
-                    e.flow_side = FLOWSIDE.DEST
-                else:
-                    e.flow_side = FLOWSIDE.SRC
-                #print(f"  ... {e}")
-
-
-
-
-def extend_effort_to_zero(nname: str, edgenum:int, es: list[FlyEdge]):
-
-    # at a zero node, getting strong bond from edgenum
-    # blow out the effort for the other bonds
-    es = [e for e in es if nname in e.src or nname in e.dest]
-    es = [e for e in es if e.num != edgenum]
-    for e in es:
-        if nname in e.src:
-            e.flow_side = FLOWSIDE.DEST
-        else:
-            e.flow_side = FLOWSIDE.SRC
-
-def extend_effort_to_node(nname: str, edgenum:int, es: list[FlyEdge]):
-
-    nname_leader = nname.split("_")[1]
-
-    match nname_leader:
-        case "0" : 
-            print(f"nntype: 0  for node: {nname}")
-            extend_effort_to_zero(nname, edgenum, es)
-        case "1" : print(f"nntype: 1  for node: {nname}")
-        case "TF": print(f"nntype: TF for node: {nname}")
-'''
 
 def extend_causality_to_node(node_name: str, fg: FlyGraph):
 
