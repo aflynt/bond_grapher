@@ -1,0 +1,473 @@
+import pydot
+from enum import Enum
+
+class FLOWSIDE(Enum):
+    SRC =  1 
+    IDK =  0
+    DEST = -1
+
+class YNI(Enum):
+    YES =  1
+    IDK =  0
+    NO  = -1
+
+class NODETYPE(Enum):
+    SE   = 0
+    SF   = 1
+    R    = 2
+    I    = 3
+    C    = 4
+    TF   = 5
+    ZERO = 6
+    ONE  = 7
+
+
+class FlyEdge:
+    def __init__(self, label_num=0, src="", dest="", pwr_to_dest=1, flow_side=FLOWSIDE.IDK):
+        self.src = src
+        self.dest = dest
+        self.num = label_num
+        self.pwr_to_dest = pwr_to_dest
+        self.flow_side = flow_side
+    def mk_edge(self):
+        a_h = "none"
+        a_t = "none"
+        if self.pwr_to_dest:
+            a_h = "lnormal"
+        else:
+            a_t = "lnormal"
+        if self.flow_side == FLOWSIDE.SRC:
+            a_t = "tee" + a_t
+        elif self.flow_side == FLOWSIDE.DEST:
+            a_h = "tee" + a_h
+        e = pydot.Edge(self.src, self.dest, label=self.num, dir="both", arrowhead=a_h, arrowtail=a_t)
+        return e
+    def __str__(self):
+        sfstr = self.flow_side.name
+        estr = f"{self.num:2d}: {self.src:10s} -> {self.dest:10s} [{self.pwr_to_dest:3d}] [{sfstr}]"
+        return estr
+
+
+
+class FlyNode:
+    def __init__(self, name:str, type:NODETYPE, ports=[]):
+        self.name = name
+        self.type = type
+        self.ports = ports.copy()
+        self.node = pydot.Node(self.name, shape="none", label=self.name)
+
+    def get_nports(self):
+        return len(self.ports)
+
+    def add_port(self, p):
+        if p not in self.ports:
+            self.ports.append(p)
+
+    def get_name(self):
+        return self.name
+
+
+class FlyNodeSE(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.SE, ports=ports)
+
+class FlyNodeSF(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.SF, ports=ports)
+
+class FlyNodeR(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.R, ports=ports)
+
+class FlyNodeI(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.I, ports=ports)
+
+class FlyNodeC(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.C, ports=ports)
+
+class FlyNodeTF(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.TF, ports=ports)
+
+class FlyNodeZERO(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.ZERO, ports=ports)
+
+class FlyNodeONE(FlyNode):
+    def __init__(self, name , ports=[]):
+        super().__init__(name, NODETYPE.ONE, ports=ports)
+
+
+class FlyGraph:
+    def __init__(self, ns: list[FlyNode] = [], es: list[FlyEdge] = []):
+        self.ns = ns.copy()
+        self.es = es.copy()
+
+    def assign_causality(self):
+
+        # assign causality to edges
+        for e in self.es:
+            if "SE" in e.src:
+                e.flow_side = FLOWSIDE.DEST
+            elif "SF" in e.src:
+                e.flow_side = FLOWSIDE.SRC
+            else:
+                e.flow_side = FLOWSIDE.IDK
+    
+'''
+def extend_causality_0s(es:list[FlyEdge]):
+
+    # collect 0s
+    #e0s = [e for e in es if "n_0" in e.src or "n_0" in e.dest]
+    #for e0 in e0s:
+    #    print(f" checking e0: {e0}")
+    n0s = [ n for n in ns if "n_0" in n.get_name()]
+
+    for n0 in n0s:
+        # get edge connections
+        n0name = n0.get_name()
+
+        SBS = [] # find strong bonds
+
+        #print(f"-- CHECKIN NODE {n0}")
+        for e in [e for e in es if n0name in e.dest]:
+            if e.flow_side == FLOWSIDE.DEST:
+                SBS.append(e) # found strong bond
+
+        for e in [e for e in es if n0name in e.src]:
+            if e.flow_side == FLOWSIDE.SRC:
+                SBS.append(e) # found strong bond
+        
+        if len(SBS) > 1:
+            assert False, f"TOO MANY STRONG BONDS for n0: {n0}"
+
+        if len(SBS) == 1:
+            SB = SBS[0]
+            all_es_0s = [e for e in es if n0name in e.src or n0name in e.dest]
+            all_es_0s = [e for e in all_es_0s if e.num != SB.num]
+            #print(f" - strong bond = {SB}")
+            #print(f" - other bonds:")
+            for e in all_es_0s:
+                if n0name in e.src:
+                    e.flow_side = FLOWSIDE.DEST
+                else:
+                    e.flow_side = FLOWSIDE.SRC
+                #print(f"  ... {e}")
+
+
+
+
+def extend_effort_to_zero(nname: str, edgenum:int, es: list[FlyEdge]):
+
+    # at a zero node, getting strong bond from edgenum
+    # blow out the effort for the other bonds
+    es = [e for e in es if nname in e.src or nname in e.dest]
+    es = [e for e in es if e.num != edgenum]
+    for e in es:
+        if nname in e.src:
+            e.flow_side = FLOWSIDE.DEST
+        else:
+            e.flow_side = FLOWSIDE.SRC
+
+def extend_effort_to_node(nname: str, edgenum:int, es: list[FlyEdge]):
+
+    nname_leader = nname.split("_")[1]
+
+    match nname_leader:
+        case "0" : 
+            print(f"nntype: 0  for node: {nname}")
+            extend_effort_to_zero(nname, edgenum, es)
+        case "1" : print(f"nntype: 1  for node: {nname}")
+        case "TF": print(f"nntype: TF for node: {nname}")
+'''
+
+def extend_causality_to_node(node_name: str, fg: FlyGraph):
+
+    """
+    Extend causality to connected nodes of type "0", "1", "TF"
+    """
+    # get edges
+    es = fg.es
+
+    # collect edges connected to the node
+    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+
+    # check if the node is a 0, 1, or TF type
+    node_type = node_name.split("_")[0]
+
+    CHK_TYPES = ["0", "1", "TF"]
+    match node_type:
+        case "0":
+            print(f"Node {node_name} is of type 0")
+            assign_causality_to_nodetype_zero(node_name, fg)
+        case "1":
+            print(f"Node {node_name} is of type 1")
+            assign_causality_to_nodetype_one(node_name, fg)
+        case "TF":
+            print(f"Node {node_name} is of type TF")
+            assign_causality_to_nodetype_tf(node_name, fg)
+        case _:
+            print(f"Node {node_name} is of type: {node_type}, passing")
+
+def assign_causality_to_nodetype_tf(node_name: str, fg: FlyGraph):
+    '''
+    Assign causality to connected nodes of type "TF"
+    '''
+
+    # TF nodes are special, they only have two edges connected to them
+    # if one edge brings in the flow, the other edge must take it out
+
+    # collect edges connected to the node
+    es = fg.es
+
+    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+    if len(connected_edges) != 2:
+        raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
+
+    # check if the node is a TF type
+    if "TF" in node_name:
+        print(f"Node {node_name} is of type TF")
+        # extend causality to connected nodes
+        # type "TF" nodes are special, they have only two edges connected to them
+        # so one port can bring in the flow and the other port can take it out
+
+        # check if ony one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
+        known_edges = [e for e in connected_edges if e.flow_side != FLOWSIDE.IDK]
+        if len(known_edges) == 1:
+            known_edge = known_edges[0 ] # the known edge is the one that has flow_side set to SRC or DEST
+            idk_edge   = known_edges[-1] # the other edge is the one that has flow_side set to IDK
+            print(f"Node {node_name} has an edge with flow_side known: {known_edge}")
+
+            is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
+            is_node_name_in_src = node_name in known_edge.src
+
+            if is_flow_side_src and is_node_name_in_src:
+                # MODE A) the known edge is the source side, so the other edge must be the destination side
+                if node_name in idk_edge.src:
+                    idk_edge.flow_side = FLOWSIDE.DEST
+                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
+                else:
+                    idk_edge.flow_side = FLOWSIDE.SRC
+                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
+
+            elif not is_flow_side_src and is_node_name_in_src:
+                # MODE B) the known edge is the destination side, but the node_name is in the source side
+                # this means that the node_name is in the source side
+                if node_name in idk_edge.src:
+                    idk_edge.flow_side = FLOWSIDE.SRC
+                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
+                else:
+                    idk_edge.flow_side = FLOWSIDE.DEST
+                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
+
+            elif is_flow_side_src and not is_node_name_in_src:
+                # MODE C) the known edge is the source side, but the node_name is not in the source side
+                # this means that the node_name is in the destination side
+                if node_name in idk_edge.src:
+                    idk_edge.flow_side = FLOWSIDE.SRC
+                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
+                else:
+                    idk_edge.flow_side = FLOWSIDE.DEST
+                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
+
+            elif not is_flow_side_src and not is_node_name_in_src:
+                # MODE D) the known edge is the destination side, so the other edge must be the source side
+                if node_name in idk_edge.src:
+                    idk_edge.flow_side = FLOWSIDE.DEST
+                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
+                else:
+                    idk_edge.flow_side = FLOWSIDE.SRC
+                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
+            else:
+                raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
+
+
+
+
+def assign_causality_to_nodetype_zero(node_name: str, fg: FlyGraph):
+    """
+    Assign causality to connected nodes of type "0"
+    """
+    # get edges
+    es = fg.es
+
+    # collect edges connected to the node
+    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+
+    # check if the node is a 0 type
+    if "0" in node_name:
+        print(f"Node {node_name} is of type 0")
+
+        # extend causality to connected nodes
+
+        # type "0" nodes are special, they have only one strong bond
+        # so only one port can bring in the effort
+
+        # check if the node has a strong bond
+        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "0" in e.src
+                        or e.flow_side == FLOWSIDE.DEST and "0" in e.dest]
+        if len(strong_bonds) > 1:
+            raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
+
+        elif len(strong_bonds) == 1:
+            strong_bond = strong_bonds[0]
+            print(f"Node {node_name} has a strong bond: {strong_bond}")
+
+            extension_list = []
+            # extend causality to other edges connected to the node
+            for e in connected_edges:
+                if e.num != strong_bond.num:
+                    if node_name in e.src:
+                        e.flow_side = FLOWSIDE.DEST
+                        extension_list.append(e.dest)
+                    else:
+                        e.flow_side = FLOWSIDE.SRC
+                        extension_list.append(e.src)
+                    print(f"Extended causality to edge: {e}")
+
+            for ext_node in extension_list:
+                extend_causality_to_node(ext_node, fg)
+    else:
+        print(f"Node {node_name} is not of type 0, no causality assignment needed.")
+        return
+
+def assign_causality_to_nodetype_one(node_name: str, fg: FlyGraph):
+    """
+    Assign causality to connected nodes of type "1"
+    """
+    # get edges
+    es = fg.es
+
+    # collect edges connected to the node
+    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+
+    # check if the node is a 1 type
+    if "1" in node_name:
+        print(f"extending causality to Node {node_name} of type 1")
+
+        # extend causality to connected nodes
+
+        # type "1" nodes are special, they have only one strong bond
+        # so only one port can bring in the flow
+        # check if the node has a strong bond
+        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "1" in e.dest
+                        or e.flow_side == FLOWSIDE.DEST and "1" in e.src]
+        if len(strong_bonds) > 1:
+            raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
+
+        elif len(strong_bonds) == 1:
+            # non-strong bonds push flow out of node with node_name
+            strong_bond = strong_bonds[0]
+            print(f"Node {node_name} has a strong bond: {strong_bond}")
+
+            extension_list = []
+            # extend causality to other edges connected to the node
+            for e in connected_edges:
+                if e.num != strong_bond.num:
+                    if node_name in e.src:
+                        e.flow_side = FLOWSIDE.SRC
+                        extension_list.append(e.dest)
+                    else:
+                        e.flow_side = FLOWSIDE.DEST
+                        extension_list.append(e.src)
+                    print(f"Extended causality to edge: {e}")
+
+            for ext_node in extension_list:
+                extend_causality_to_node(ext_node, fg)
+    else:
+        print(f"Node {node_name} is not of type 0, no causality assignment needed.")
+        return
+
+def assign_se_causality(fg: FlyGraph):
+
+    # get edges
+    es = fg.es
+
+    # collect SE sources
+    se_srcs = [e for e in es if "SE" in e.src]
+
+    # assign required causality to SE sources
+    # we are working with SE elements that are the source side of an edge
+    # SE   src -> dest
+    # so flow side = DEST
+    for e in se_srcs:
+        e.flow_side = FLOWSIDE.DEST
+
+        print(f" [e]: {e}")
+
+        dest_name = e.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(e.dest, fg)
+        
+
+    # collect SE destinations
+    se_dests = [e for e in es if "SE" in e.dest]
+    # assign required causality to SE destinations
+
+    for e in se_dests:
+        e.flow_side = FLOWSIDE.SRC
+
+        print(f" [e]: {e}")
+
+        dest_name = e.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(e.dest, fg)
+
+
+def assign_sf_causality(fg: FlyGraph):
+
+    # get edges
+    es = fg.es
+
+    # collect SF sources
+    se_srcs = [e for e in es if "SF" in e.src]
+
+    # assign required causality to SF sources
+    # we are working with SF elements that are the source side of an edge
+    # SF   src -> dest
+    # so flow side = SRC
+    for e in se_srcs:
+        e.flow_side = FLOWSIDE.SRC
+
+        print(f" [e]: {e}")
+
+        dest_name = e.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(e.dest, fg)
+        
+
+    # collect SF destinations
+    sf_dests = [e for e in es if "SF" in e.dest]
+    # assign required causality to SF destinations
+
+    for e in sf_dests:
+        e.flow_side = FLOWSIDE.DEST
+
+        print(f" [e]: {e}")
+
+        dest_name = e.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(e.dest, fg)
+    
