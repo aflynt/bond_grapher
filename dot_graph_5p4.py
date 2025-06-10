@@ -1,7 +1,7 @@
 from lib_bonds import *
 graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
 
-node_SE = FlyNodeSF("SF")
+node_SF = FlyNodeSF("SF")
 node_C  = FlyNodeC("C")
 node_R = FlyNodeR("R")
 node_I = FlyNodeI("I")
@@ -12,7 +12,7 @@ node_1 = FlyNodeONE("1")
 
 # make list of nodes
 ns = [
-  node_SE,
+  node_SF,
   node_C,
   node_R,
   node_I,
@@ -26,11 +26,11 @@ for n in ns:
 
 # make list of edges
 es = [
-    FlyEdge(1, node_SE.get_name(), node_1.get_name() , pwr_to_dest=1),
-    FlyEdge(2, node_C.get_name(), node_1.get_name() , pwr_to_dest=0),
-    FlyEdge(3, node_1.get_name(), node_0.get_name() , pwr_to_dest=1),
-    FlyEdge(4, node_0.get_name(), node_R.get_name() , pwr_to_dest=1),
-    FlyEdge(5, node_0.get_name(), node_I.get_name() , pwr_to_dest=1),
+    FlyEdge(1, node_SF.get_name(), node_0.get_name() , pwr_to_dest=1),
+    FlyEdge(2, node_C.get_name(), node_0.get_name() , pwr_to_dest=0),
+    FlyEdge(3, node_0.get_name(), node_1.get_name() , pwr_to_dest=1),
+    FlyEdge(4, node_1.get_name(), node_R.get_name() , pwr_to_dest=1),
+    FlyEdge(5, node_1.get_name(), node_I.get_name() , pwr_to_dest=1),
 ]
 
 # add bond numbers to node ports
