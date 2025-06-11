@@ -106,16 +106,13 @@ def extend_causality_to_node(node_name: str, es: list[FlyEdge]):
     CHK_TYPES = ["0", "1", "TF"]
     match node_type:
         case "0":
-            print(f"Node {node_name} is of type 0")
             assign_causality_to_nodetype_zero(node_name, es)
         case "1":
-            print(f"Node {node_name} is of type 1")
             assign_causality_to_nodetype_one(node_name, es)
         case "TF":
-            print(f"Node {node_name} is of type TF")
             assign_causality_to_nodetype_tf(node_name, es)
         case _:
-            print(f"Node {node_name} is of type: {node_type}, passing")
+            pass
 
 def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
     '''
@@ -133,7 +130,6 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
 
     # check if the node is a TF type
     if "TF" in node_name.split("_")[0]:
-        print(f"[assign TF] for Node {node_name}")
         # extend causality to connected nodes
         # type "TF" nodes are special, they have only two edges connected to them
         # so one port can bring in the flow and the other port can take it out
@@ -145,8 +141,6 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
             known_edge_num = known_edge.num
             idk_edge_num = [e.num for e in connected_edges if e.num != known_edge_num][0]
             idk_edge = [e for e in connected_edges if e.num != known_edge_num][0] # the other edge is the one that has flow_side set to IDK
-            print(f"Node {node_name} has an edge with flow_side known: {known_edge}")
-            print(f"Node {node_name} has an edge with flow_side unknown: {idk_edge}")
 
             # get the other node name from the idk_edge
             idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
@@ -158,39 +152,31 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
                 # MODE A) the known edge is the source side, so the other edge must be the destination side
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
-                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
-                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
 
             elif not is_flow_side_src and is_node_name_in_src:
                 # MODE B) the known edge is the destination side, but the node_name is in the source side
                 # this means that the node_name is in the source side
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
-                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
-                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
 
             elif is_flow_side_src and not is_node_name_in_src:
                 # MODE C) the known edge is the source side, but the node_name is not in the source side
                 # this means that the node_name is in the destination side
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
-                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
-                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
 
             elif not is_flow_side_src and not is_node_name_in_src:
                 # MODE D) the known edge is the destination side, so the other edge must be the source side
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
-                    print(f"Setting flow_side of edge {idk_edge.num} to DEST")
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
-                    print(f"Setting flow_side of edge {idk_edge.num} to SRC")
             else:
                 raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
             
@@ -208,7 +194,6 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
 
     # check if the node is a 0 type
     if "0" in node_name.split("_")[0]:
-        print(f"[assign 0] for Node {node_name}")
 
         # extend causality to connected nodes
 
@@ -223,7 +208,6 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
 
         elif len(strong_bonds) == 1:
             strong_bond = strong_bonds[0]
-            print(f"Node {node_name} has a strong bond: {strong_bond}")
 
             extension_list = []
             # extend causality to other edges connected to the node
@@ -235,7 +219,6 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
                     else:
                         e.flow_side = FLOWSIDE.SRC
                         extension_list.append(e.src)
-                    print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
                 node_type = ext_node.split("_")[0]
@@ -251,11 +234,9 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
                     strong_bond.flow_side = FLOWSIDE.SRC
                 else:
                     strong_bond.flow_side = FLOWSIDE.DEST
-                print(f"Assigned causality: Node {node_name} now has a strong bond: {strong_bond}")
 
 
     else:
-        print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
 
 def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
@@ -267,7 +248,6 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
 
     # check if the node is a 1 type
     if "1" in node_name.split("_")[0]:
-        print(f"[assign 1] for Node {node_name}")
 
         # extend causality to connected nodes
 
@@ -282,7 +262,6 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
         elif len(strong_bonds) == 1:
             # non-strong bonds push flow out of node with node_name
             strong_bond = strong_bonds[0]
-            print(f"Node {node_name} has a strong bond: {strong_bond}")
 
             extension_list = []
             # extend causality to other edges connected to the node
@@ -294,7 +273,6 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
                     else:
                         e.flow_side = FLOWSIDE.DEST
                         extension_list.append(e.src)
-                    print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
                 node_type = ext_node.split("_")[0]
@@ -310,10 +288,8 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
                     strong_bond.flow_side = FLOWSIDE.DEST
                 else:
                     strong_bond.flow_side = FLOWSIDE.SRC
-                print(f"Assigned causality: Node {node_name} now has a strong bond: {strong_bond}")
 
     else:
-        print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
 
 def assign_se_causality(es: list[FlyEdge] ):
@@ -327,8 +303,6 @@ def assign_se_causality(es: list[FlyEdge] ):
     # so flow side = DEST
     for e in se_srcs:
         e.flow_side = FLOWSIDE.DEST
-
-        print(f" [e]: {e}")
 
         dest_name = e.dest.split("_")[0]
 
@@ -346,8 +320,6 @@ def assign_se_causality(es: list[FlyEdge] ):
 
     for e in se_dests:
         e.flow_side = FLOWSIDE.SRC
-
-        print(f" [e]: {e}")
 
         dest_name = e.dest.split("_")[0]
 
@@ -372,8 +344,6 @@ def assign_sf_causality(es: list[FlyEdge] ):
     for e in sf_srcs:
         e.flow_side = FLOWSIDE.SRC
 
-        print(f" [e]: {e}")
-
         dest_name = e.dest.split("_")[0]
 
         CHK_TYPES = ["0", "1", "TF"]
@@ -390,8 +360,6 @@ def assign_sf_causality(es: list[FlyEdge] ):
 
     for e in sf_dests:
         e.flow_side = FLOWSIDE.DEST
-
-        print(f" [e]: {e}")
 
         dest_name = e.dest.split("_")[0]
 
@@ -411,7 +379,6 @@ def assign_I_causality(es: list[FlyEdge] ):
     # assign preferred (flow side) causality to I sources
     for I_edge in I_source_edges:
         I_edge.flow_side = FLOWSIDE.SRC
-        print(f" [I_node]: {I_edge}")
 
         dest_name = I_edge.dest.split("_")[0]
 
@@ -427,7 +394,6 @@ def assign_I_causality(es: list[FlyEdge] ):
     # assign preferred (flow side) causality to I destinations
     for I_edge in I_dest_edges:
         I_edge.flow_side = FLOWSIDE.DEST
-        print(f" [I_node]: {I_edge}")
 
         src_name = I_edge.src.split("_")[0]
 
@@ -446,7 +412,6 @@ def assign_C_causality(es: list[FlyEdge] ):
     # assign preferred (non-flow side) causality to C sources
     for C_edge in C_source_edges:
         C_edge.flow_side = FLOWSIDE.DEST
-        print(f" [C_node]: {C_edge}")
 
         dest_name = C_edge.dest.split("_")[0]
 
@@ -462,7 +427,6 @@ def assign_C_causality(es: list[FlyEdge] ):
     # assign preferred (non-flow side) causality to C destinations
     for C_edge in C_dest_edges:
         C_edge.flow_side = FLOWSIDE.SRC
-        print(f" [C_node]: {C_edge}")
 
         src_name = C_edge.src.split("_")[0]
 
@@ -473,7 +437,7 @@ def assign_C_causality(es: list[FlyEdge] ):
             if CT in src_name:
                 extend_causality_to_node(C_edge.src, es)
 
-def assign_causality_to_all_nodes(es: list[FlyEdge]):
+def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
 
     assign_se_causality(es)
     assign_sf_causality(es)
@@ -481,12 +445,10 @@ def assign_causality_to_all_nodes(es: list[FlyEdge]):
     assign_C_causality(es)
 
     # all edges should now have their flow_side set
-    any_flow_side_idk = any(e.flow_side == FLOWSIDE.IDK for e in es)
-    if any_flow_side_idk:
-        print("Some edges still have flow_side set to IDK, which is not great.")
-        for e in es:
-            if e.flow_side == FLOWSIDE.IDK:
-                print(f"Edge {e} has flow_side set to IDK, which is not great.")
-    else:
-        print("All edges have their flow_side set correctly.")
+    if report:
+        any_flow_side_idk = any(e.flow_side == FLOWSIDE.IDK for e in es)
+        if any_flow_side_idk:
+            print("Some edges still have flow_side set to IDK, which is not great.")
+        else:
+            print("All edges have their flow_side set correctly.")
 
