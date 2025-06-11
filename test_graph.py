@@ -20,9 +20,7 @@ class Test_5p4(unittest.TestCase):
             FlyEdge(5, "1", "I" , pwr_to_dest=1),
         ]
 
-        assign_se_causality(self.es)
-        assign_sf_causality(self.es)
-        assign_I_causality(self.es)
+        assign_causality_to_all_nodes(self.es)
 
 
     def test_SF(self):
@@ -133,9 +131,7 @@ class Test_5p5(unittest.TestCase):
             FlyEdge(13, n_0, n_1_c , pwr_to_dest=1),
         ]
 
-        assign_se_causality(self.es)
-        assign_sf_causality(self.es)
-        assign_I_causality(self.es)
+        assign_causality_to_all_nodes(self.es)
 
         graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
         for n in self.ns:
@@ -254,9 +250,7 @@ class Test_5p6(unittest.TestCase):
             self.es.append(FlyEdge(edge_id, src, dest, pwr_to_dest=pwr_to_dest))
 
 
-        assign_se_causality(self.es)
-        assign_sf_causality(self.es)
-        assign_I_causality(self.es)
+        assign_causality_to_all_nodes(self.es)
 
         graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
         for n in self.ns:
