@@ -141,9 +141,15 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
         # check if ony one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
         known_edges = [e for e in connected_edges if e.flow_side != FLOWSIDE.IDK]
         if len(known_edges) == 1:
-            known_edge = known_edges[0 ] # the known edge is the one that has flow_side set to SRC or DEST
-            idk_edge   = known_edges[-1] # the other edge is the one that has flow_side set to IDK
+            known_edge = known_edges[0] # the known edge is the one that has flow_side set to SRC or DEST
+            known_edge_num = known_edge.num
+            idk_edge_num = [e.num for e in connected_edges if e.num != known_edge_num][0]
+            idk_edge = [e for e in connected_edges if e.num != known_edge_num][0] # the other edge is the one that has flow_side set to IDK
             print(f"Node {node_name} has an edge with flow_side known: {known_edge}")
+            print(f"Node {node_name} has an edge with flow_side unknown: {idk_edge}")
+
+            # get the other node name from the idk_edge
+            idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
 
             is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
             is_node_name_in_src = node_name in known_edge.src
@@ -187,6 +193,8 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
                     print(f"Setting flow_side of edge {idk_edge.num} to SRC")
             else:
                 raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
+            
+            extend_causality_to_node(idk_node_name, es)
 
 
 
