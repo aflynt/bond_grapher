@@ -50,7 +50,7 @@ class FlyEdge:
 
 
 class FlyNode:
-    def __init__(self, name:str, type:NODETYPE, ports=[]):
+    def __init__(self, name:str, type:NODETYPE):
         self.name = name
         self.type = type
         self.node = pydot.Node(self.name, shape="none", label=self.name)
@@ -59,36 +59,36 @@ class FlyNode:
         return self.name
 
 class FlyNodeSE(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.SE, ports=ports)
+    def __init__(self, name  ):
+        super().__init__(name, NODETYPE.SE)
 
 class FlyNodeSF(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.SF, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.SF)
 
 class FlyNodeR(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.R, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.R)
 
 class FlyNodeI(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.I, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.I)
 
 class FlyNodeC(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.C, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.C)
 
 class FlyNodeTF(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.TF, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.TF)
 
 class FlyNodeZERO(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.ZERO, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.ZERO)
 
 class FlyNodeONE(FlyNode):
-    def __init__(self, name , ports=[]):
-        super().__init__(name, NODETYPE.ONE, ports=ports)
+    def __init__(self, name ):
+        super().__init__(name, NODETYPE.ONE)
 
 
     
