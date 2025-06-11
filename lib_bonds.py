@@ -1,5 +1,6 @@
 import pydot
 from enum import Enum
+import sympy as sym
 
 class FLOWSIDE(Enum):
     SRC =  1 
@@ -452,3 +453,161 @@ def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
         else:
             print("All edges have their flow_side set correctly.")
 
+
+def generate_symbols_for_SF(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for SF elements 
+    This function will create symbols like SF_01, SF_02, ..., SF_99
+    """
+    equations = []
+    new_symbols = []
+
+    # get list of source of flow symbols
+    sf_nums = [e.num for e in es if 
+            "SF" in e.src.split("_")[0] or
+            "SF" in e.dest.split("_")[0]]
+
+    # equate the generic names to the unique names
+    for sf_num in sf_nums:
+
+        # create symbol SF_nn, then equate f_nn = SF_nn
+        unique_f_sym = sym.Symbol(f"SF_{sf_num:02d}", real=True)
+        generic_f_sym = sym.Symbol(f"f_{sf_num:02d}", real=True)
+        new_symbols.append(unique_f_sym)
+
+        eq = sym.Eq(generic_f_sym, unique_f_sym)
+        equations.append(eq)
+
+    return equations, new_symbols
+
+def generate_symbols_for_SE(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for SE elements
+    This function will create symbols like SE_01, SE_02, ..., SE_99
+    """
+    # equation list
+    equations = []
+    new_symbols = []
+
+    # get list of source of effort symbols
+    se_nums = [e.num for e in es if 
+            "SE" in e.src.split("_")[0] or
+            "SE" in e.dest.split("_")[0]]
+
+    # equate the generic names to the unique names
+    for se_num in se_nums:
+
+        # create symbol SE_nn, then equate e_nn = SE_nn
+        unique_e_sym = sym.Symbol(f"SE_{se_num:02d}", real=True)
+        generic_e_sym = sym.Symbol(f"e_{se_num:02d}", real=True)
+        new_symbols.append(unique_e_sym)
+
+        eq = sym.Eq(generic_e_sym, unique_e_sym)
+        equations.append(eq)
+
+    return equations, new_symbols
+
+def generate_symbols_for_I(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for I elements
+    This function will create symbols like I_01, I_02, ..., I_99
+    """
+    # equation list
+    equations = []
+    new_symbols = []
+
+    # get list of I symbols
+    I_nums = [e.num for e in es if 
+            "I" in e.src.split("_")[0] or
+            "I" in e.dest.split("_")[0]]
+
+    # create symbol [I,p]_nn, then generate equation
+    for i_num in I_nums:
+
+        I_nn = sym.Symbol(f"I_{i_num:02d}", real=True)
+        p_nn = sym.Symbol(f"p_{i_num:02d}", real=True)
+        f_nn = sym.Symbol(f"f_{i_num:02d}", real=True)
+
+        new_symbols.append(I_nn)
+        new_symbols.append(p_nn)
+        new_symbols.append(f_nn)
+
+        # equation is always f_nn = p_nn / I_nn
+        eq = sym.Eq(f_nn, p_nn / I_nn) # type: ignore
+        equations.append(eq)
+
+    return equations, new_symbols
+
+def generate_symbols_for_C(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for C elements
+    This function will create symbols like C_01, C_02, ..., C_99
+    """
+    # equation list
+    equations = []
+    new_symbols = []
+
+    # get list of C symbols
+    C_nums = [e.num for e in es if 
+            "C" in e.src.split("_")[0] or
+            "C" in e.dest.split("_")[0]]
+
+    # create symbol [C,q]_nn, then generate equation
+    for c_num in C_nums:
+
+        C_nn = sym.Symbol(f"C_{c_num:02d}", real=True)
+        q_nn = sym.Symbol(f"q_{c_num:02d}", real=True)
+        e_nn = sym.Symbol(f"e_{c_num:02d}", real=True)
+
+        new_symbols.append(C_nn)
+        new_symbols.append(q_nn)
+        new_symbols.append(e_nn)
+
+        # equation is always e_nn = q_nn / C_nn
+        eq = sym.Eq(e_nn, q_nn / C_nn) # type: ignore
+        equations.append(eq)
+
+    return equations, new_symbols
+
+
+def generate_symbols(es: list[FlyEdge]) -> None:
+    """
+    Generate symbols for the bonds
+    """
+    sym.init_printing(use_unicode=True)
+
+    equations = []
+    symbols = []
+
+    # pull out the numbers from the edges
+    nums = [e.num for e in es]
+
+    # generate symbols for f and e
+    # f_01, f_02, ..., f_99
+    # e_01, e_02, ..., e_99
+    f_symbols = [sym.Symbol(f"f_{num:02d}", real=True) for num in nums]
+    e_symbols = [sym.Symbol(f"e_{num:02d}", real=True) for num in nums]
+    symbols.extend(f_symbols)
+    symbols.extend(e_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_SF(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_SE(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_I(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_C(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    # print all equations
+    print("\nEquations:")
+    for eq in equations:
+        sym.pprint(eq)
+        print(eq)
