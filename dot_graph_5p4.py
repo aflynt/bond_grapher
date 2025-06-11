@@ -21,10 +21,7 @@ es = [
     FlyEdge(5, node_1.get_name(), node_I.get_name() , pwr_to_dest=1),
 ]
 
-# assign causality
-assign_se_causality(es)
-assign_sf_causality(es)
-assign_I_causality(es)
+assign_causality_to_all_nodes(es)
 
 # report edge flow_side
 for e in es:

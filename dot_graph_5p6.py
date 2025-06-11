@@ -50,9 +50,7 @@ for edge in edge_list:
     es.append(FlyEdge(edge_id, src, dest, pwr_to_dest=pwr_to_dest))
 
 
-assign_se_causality(es)
-assign_sf_causality(es)
-assign_I_causality(es)
+assign_causality_to_all_nodes(es)
 
 graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
 for n in ns:
