@@ -132,8 +132,8 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
         raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
 
     # check if the node is a TF type
-    if "TF" in node_name:
-        print(f"Node {node_name} is of type TF")
+    if "TF" in node_name.split("_")[0]:
+        print(f"[assign TF] for Node {node_name}")
         # extend causality to connected nodes
         # type "TF" nodes are special, they have only two edges connected to them
         # so one port can bring in the flow and the other port can take it out
@@ -207,8 +207,8 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
     connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
 
     # check if the node is a 0 type
-    if "0" in node_name:
-        print(f"Node {node_name} is of type 0")
+    if "0" in node_name.split("_")[0]:
+        print(f"[assign 0] for Node {node_name}")
 
         # extend causality to connected nodes
 
@@ -228,7 +228,7 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
             extension_list = []
             # extend causality to other edges connected to the node
             for e in connected_edges:
-                if e.num != strong_bond.num:
+                if e.num != strong_bond.num and e.flow_side == FLOWSIDE.IDK:
                     if node_name in e.src:
                         e.flow_side = FLOWSIDE.DEST
                         extension_list.append(e.dest)
@@ -238,7 +238,9 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
                     print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
-                extend_causality_to_node(ext_node, es)
+                node_type = ext_node.split("_")[0]
+                if node_type in ["0", "1", "TF"]:
+                    extend_causality_to_node(ext_node, es)
         else:
             # No strong bond found; check for a single IDK bond
             idk_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.IDK]
@@ -251,19 +253,6 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
                     strong_bond.flow_side = FLOWSIDE.DEST
                 print(f"Assigned causality: Node {node_name} now has a strong bond: {strong_bond}")
 
-                # extension_list = []
-                # # extend causality to other edges connected to the node
-                # for e in connected_edges:
-                #     if e.num != strong_bond.num:
-                #         if node_name in e.src:
-                #             extension_list.append(e.dest)
-                #         else:
-                #             extension_list.append(e.src)
-                #         print(f"Extended causality to edge: {e}")
-
-                # for ext_node in extension_list:
-                #     extend_causality_to_node(ext_node, fg)
-            # else: No strong bond and not exactly one IDK bond; do nothing or log as needed.
 
     else:
         print(f"Node {node_name} is not of type 0, no causality assignment needed.")
@@ -277,8 +266,8 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
     connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
 
     # check if the node is a 1 type
-    if "1" in node_name:
-        print(f"extending causality to Node {node_name} of type 1")
+    if "1" in node_name.split("_")[0]:
+        print(f"[assign 1] for Node {node_name}")
 
         # extend causality to connected nodes
 
@@ -298,7 +287,7 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
             extension_list = []
             # extend causality to other edges connected to the node
             for e in connected_edges:
-                if e.num != strong_bond.num:
+                if e.num != strong_bond.num and (e.flow_side == FLOWSIDE.IDK):
                     if node_name in e.src:
                         e.flow_side = FLOWSIDE.SRC
                         extension_list.append(e.dest)
@@ -308,7 +297,21 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
                     print(f"Extended causality to edge: {e}")
 
             for ext_node in extension_list:
-                extend_causality_to_node(ext_node, es)
+                node_type = ext_node.split("_")[0]
+                if node_type in ["0", "1", "TF"]:
+                    extend_causality_to_node(ext_node, es)
+        else:
+            # No strong bond found; check for a single IDK bond
+            idk_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.IDK]
+            if len(idk_bonds) == 1:
+                strong_bond = idk_bonds[0]
+                # Assign causality: decide direction based on node_name's position
+                if node_name in strong_bond.src:
+                    strong_bond.flow_side = FLOWSIDE.DEST
+                else:
+                    strong_bond.flow_side = FLOWSIDE.SRC
+                print(f"Assigned causality: Node {node_name} now has a strong bond: {strong_bond}")
+
     else:
         print(f"Node {node_name} is not of type 0, no causality assignment needed.")
         return
@@ -316,7 +319,7 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
 def assign_se_causality(es: list[FlyEdge] ):
 
     # collect SE sources
-    se_srcs = [e for e in es if "SE" in e.src]
+    se_srcs = [e for e in es if "SE" in e.src.split("_")[0]]
 
     # assign required causality to SE sources
     # we are working with SE elements that are the source side of an edge
@@ -338,7 +341,7 @@ def assign_se_causality(es: list[FlyEdge] ):
         
 
     # collect SE destinations
-    se_dests = [e for e in es if "SE" in e.dest]
+    se_dests = [e for e in es if "SE" in e.dest.split("_")[0]]
     # assign required causality to SE destinations
 
     for e in se_dests:
@@ -360,13 +363,13 @@ def assign_sf_causality(es: list[FlyEdge] ):
 
 
     # collect SF sources
-    se_srcs = [e for e in es if "SF" in e.src]
+    sf_srcs = [e for e in es if "SF" in e.src.split("_")[0]]
 
     # assign required causality to SF sources
     # we are working with SF elements that are the source side of an edge
     # SF   src -> dest
     # so flow side = SRC
-    for e in se_srcs:
+    for e in sf_srcs:
         e.flow_side = FLOWSIDE.SRC
 
         print(f" [e]: {e}")
@@ -382,7 +385,7 @@ def assign_sf_causality(es: list[FlyEdge] ):
         
 
     # collect SF destinations
-    sf_dests = [e for e in es if "SF" in e.dest]
+    sf_dests = [e for e in es if "SF" in e.dest.split("_")[0]]
     # assign required causality to SF destinations
 
     for e in sf_dests:
