@@ -569,6 +569,167 @@ def generate_symbols_for_C(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.S
 
     return equations, new_symbols
 
+def generate_symbols_for_R(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for R elements
+    This function will create symbols like R_01, R_02, ..., R_99
+    """
+    # equation list
+    equations = []
+    new_symbols = []
+
+    for e in es:
+
+        is_R_element = "R" in e.src.split("_")[0] or "R" in e.dest.split("_")[0]
+
+        if is_R_element:
+            # this edge has an R element
+
+            is_R_on_src = "R" in e.src.split("_")[0]
+
+            r_num = e.num
+            R_nn = sym.Symbol(f"R_{r_num:02d}", real=True)
+            e_nn = sym.Symbol(f"e_{r_num:02d}", real=True)
+            f_nn = sym.Symbol(f"f_{r_num:02d}", real=True)
+
+            new_symbols.append(R_nn)
+            new_symbols.append(e_nn)
+            new_symbols.append(f_nn)
+
+            if is_R_on_src:
+                if e.flow_side == FLOWSIDE.SRC:
+                    # this element provides the flow
+                    # f_nn = e_nn / R_nn
+                    eq = sym.Eq(f_nn, e_nn / R_nn) # type: ignore
+                    equations.append(eq)
+                else:
+                    # this element consumes the flow
+                    # e_nn = f_nn * R_nn
+                    eq = sym.Eq(e_nn, f_nn * R_nn) # type: ignore
+                    equations.append(eq)
+            else: 
+                # R is on the destination side
+                if e.flow_side == FLOWSIDE.SRC:
+                    # this element consumes the flow
+                    # e_nn = f_nn * R_nn
+                    eq = sym.Eq(e_nn, f_nn * R_nn) # type: ignore
+                    equations.append(eq)
+                else:
+                    # this element provides the flow
+                    # f_nn = e_nn / R_nn
+                    eq = sym.Eq(f_nn, e_nn / R_nn) # type: ignore
+                    equations.append(eq)
+
+    return equations, new_symbols
+
+def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for TF elements
+    This function will create symbols like TF_01, TF_02, ..., TF_99
+    """
+    # equation list
+    equations = []
+    new_symbols = []
+
+    # create a map from TF_name nodes to tuple of (edge_1, edge_2) pairs
+    tf_name_map = {}
+
+    for e in es:
+        is_TF_element = "TF" in e.src.split("_")[0] or "TF" in e.dest.split("_")[0]
+
+        if is_TF_element:
+            # this edge has a TF element
+            tf_name = e.src if "TF" in e.src.split("_")[0] else e.dest
+
+            if tf_name not in tf_name_map:
+                tf_name_map[tf_name] = []
+
+            tf_name_map[tf_name].append(e)
+
+    # create symbols for each TF element
+    for tf_name, edges in tf_name_map.items():
+
+        assert len(edges) == 2, f"TF element {tf_name} must have exactly 2 edges connected to it, found {len(edges)}."
+
+        new_symbols.append(tf_name)
+
+        # deterine which edge has power flowing to the TF element
+        edge_a = edges[0]
+        edge_b = edges[1]
+
+        # assume edge_b is the first edge
+        edge_1 = edge_b
+        edge_2 = edge_a
+
+        if (edge_a.pwr_to_dest and tf_name in edge_a.dest) or (not edge_a.pwr_to_dest and tf_name in edge_a.src):
+            # edge_a is the first edge
+            edge_1 = edge_a
+            edge_2 = edge_b
+
+        e_1_nn = sym.Symbol(f"e_{edge_1.num:02d}", real=True)
+        e_2_nn = sym.Symbol(f"e_{edge_2.num:02d}", real=True)
+        f_1_nn = sym.Symbol(f"f_{edge_1.num:02d}", real=True)
+        f_2_nn = sym.Symbol(f"f_{edge_2.num:02d}", real=True)
+        new_symbols.extend([e_1_nn, e_2_nn, f_1_nn, f_2_nn])
+
+        # create equations for the TF element
+        eq_1 = sym.Eq(e_1_nn, tf_name * e_2_nn)  # e_1 = TF_name * e_2
+        eq_2 = sym.Eq(f_2_nn, tf_name * f_1_nn)  # f_2 = TF_name * f_1
+        equations.extend([eq_1, eq_2])
+
+    return equations, new_symbols
+
+def generate_equations_for_I_storage_elements(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate equations for storage elements I
+    """
+
+    equations = []
+    new_symbols = []
+
+    for e in es:
+        is_I_storage_element = "I" in e.src.split("_")[0] or "I" in e.dest.split("_")[0]
+
+        if is_I_storage_element:
+            # this edge has an I storage element
+            i_num = e.num
+            pdot_nn = sym.Symbol(f"pdot_{i_num:02d}", real=True)
+            e_nn = sym.Symbol(f"e_{i_num:02d}", real=True)
+
+            new_symbols.extend([pdot_nn, e_nn])
+
+            # create equations for the storage element
+            # pdot_nn = e_nn
+            eq_1 = sym.Eq(pdot_nn , e_nn) # type: ignore 
+            equations.append(eq_1)
+
+    return equations, new_symbols
+
+def generate_equations_for_C_storage_elements(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate equations for storage elements C
+    """
+
+    equations = []
+    new_symbols = []
+
+    for e in es:
+        is_C_storage_element = "C" in e.src.split("_")[0] or "C" in e.dest.split("_")[0]
+
+        if is_C_storage_element:
+            # this edge has an C storage element
+            i_num = e.num
+            qdot_nn = sym.Symbol(f"qdot_{i_num:02d}", real=True)
+            f_nn = sym.Symbol(f"f_{i_num:02d}", real=True)
+
+            new_symbols.extend([qdot_nn, f_nn])
+
+            # create equations for the storage element
+            # qdot_nn = f_nn
+            eq_1 = sym.Eq(qdot_nn , f_nn) # type: ignore 
+            equations.append(eq_1)
+
+    return equations, new_symbols
 
 def generate_symbols(es: list[FlyEdge]) -> None:
     """
@@ -603,6 +764,22 @@ def generate_symbols(es: list[FlyEdge]) -> None:
     symbols.extend(new_symbols)
 
     new_eqs, new_symbols = generate_symbols_for_C(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_R(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_TF(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_equations_for_I_storage_elements(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_equations_for_C_storage_elements(es)
     equations.extend(new_eqs)
     symbols.extend(new_symbols)
 
