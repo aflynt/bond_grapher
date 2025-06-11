@@ -406,7 +406,7 @@ def assign_I_causality(es: list[FlyEdge] ):
 
 
     # collect I sources
-    I_source_edges = [e for e in es if "I" in e.src]
+    I_source_edges = [e for e in es if "I" in e.src.split("_")[0]]
 
     # assign preferred (flow side) causality to I sources
     for I_edge in I_source_edges:
@@ -423,7 +423,7 @@ def assign_I_causality(es: list[FlyEdge] ):
                 extend_causality_to_node(I_edge.dest, es)
     
     # collect I destinations
-    I_dest_edges = [e for e in es if "I" in e.dest]
+    I_dest_edges = [e for e in es if "I" in e.dest.split("_")[0]]
     # assign preferred (flow side) causality to I destinations
     for I_edge in I_dest_edges:
         I_edge.flow_side = FLOWSIDE.DEST
@@ -437,3 +437,56 @@ def assign_I_causality(es: list[FlyEdge] ):
         for CT in CHK_TYPES:
             if CT in src_name:
                 extend_causality_to_node(I_edge.src, es)
+
+def assign_C_causality(es: list[FlyEdge] ):
+
+    # collect C sources
+    C_source_edges = [e for e in es if "C" in e.src.split("_")[0]]
+
+    # assign preferred (non-flow side) causality to C sources
+    for C_edge in C_source_edges:
+        C_edge.flow_side = FLOWSIDE.DEST
+        print(f" [C_node]: {C_edge}")
+
+        dest_name = C_edge.dest.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in dest_name:
+                extend_causality_to_node(C_edge.dest, es)
+    
+    # collect C destinations
+    C_dest_edges = [e for e in es if "C" in e.dest.split("_")[0]]
+    # assign preferred (non-flow side) causality to C destinations
+    for C_edge in C_dest_edges:
+        C_edge.flow_side = FLOWSIDE.SRC
+        print(f" [C_node]: {C_edge}")
+
+        src_name = C_edge.src.split("_")[0]
+
+        CHK_TYPES = ["0", "1", "TF"]
+
+        # Extend causality to connected nodes of type "0", "1", "TF"
+        for CT in CHK_TYPES:
+            if CT in src_name:
+                extend_causality_to_node(C_edge.src, es)
+
+def assign_causality_to_all_nodes(es: list[FlyEdge]):
+
+    assign_se_causality(es)
+    assign_sf_causality(es)
+    assign_I_causality(es)
+    assign_C_causality(es)
+
+    # all edges should now have their flow_side set
+    any_flow_side_idk = any(e.flow_side == FLOWSIDE.IDK for e in es)
+    if any_flow_side_idk:
+        print("Some edges still have flow_side set to IDK, which is not great.")
+        for e in es:
+            if e.flow_side == FLOWSIDE.IDK:
+                print(f"Edge {e} has flow_side set to IDK, which is not great.")
+    else:
+        print("All edges have their flow_side set correctly.")
+
