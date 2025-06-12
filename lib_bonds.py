@@ -915,7 +915,7 @@ def generate_equations_for_C_storage_elements(es: list[FlyEdge] ) -> tuple[list[
 
     return equations, new_symbols
 
-def generate_symbols(es: list[FlyEdge]) -> None:
+def generate_symbols(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
     """
     Generate symbols for the bonds
     """
@@ -975,7 +975,16 @@ def generate_symbols(es: list[FlyEdge]) -> None:
     equations.extend(new_eqs)
     symbols.extend(new_symbols)
 
-    # print all equations
+    return equations, symbols
+
+
+def report_equations(equations: list[sym.Eq], symbols: list[sym.Symbol], write: bool) -> None:
+    """
+    Report the equations and symbols
+    """
+    # PRETTY PRINTING
+    sym.init_printing(use_unicode=True)
+    print("Equations and Symbols:")
     print("\nEquations:")
     for eq in equations:
         sym.pprint(sym.simplify(eq))
@@ -984,26 +993,26 @@ def generate_symbols(es: list[FlyEdge]) -> None:
     for symb in symbols:
         sym.pprint(sym.simplify(symb))
 
-    # print equations in basic form
+
     print("\nBasic Form Equations:")
     for eq in equations:
         print(sym.simplify(eq))
 
-    # print symbols in basic form
     print("\nBasic Form Symbols:")
     for symb in symbols:
         print(sym.simplify(symb))
 
     # write basic form of equations and symbols to a file
-    with open("bonds_equations.txt", "w") as f:
+    if write:
+        with open("bonds_equations.txt", "w") as f:
 
-        f.write("\nSymbols:\n")
-        for symb in symbols:
-            f.write(f"{sym.simplify(symb)}\n")
+            f.write("\nSymbols:\n")
+            for symb in symbols:
+                f.write(f"{sym.simplify(symb)}\n")
 
-        f.write("Equations:\n")
-        for eq in equations:
-            f.write(f"{sym.simplify(eq)}\n")
+            f.write("Equations:\n")
+            for eq in equations:
+                f.write(f"{sym.simplify(eq)}\n")
 
 
 def plot_graph(edges: list[FlyEdge], node_names: list[str], ofname: str) -> None:
