@@ -1005,3 +1005,17 @@ def generate_symbols(es: list[FlyEdge]) -> None:
         for eq in equations:
             f.write(f"{sym.simplify(eq)}\n")
 
+
+def plot_graph(edges: list[FlyEdge], node_names: list[str], ofname: str) -> None:
+    """
+    Plot the graph of edges and nodes
+    """
+    graph = pydot.Dot("my_graph", graph_type="digraph", bgcolor="white")
+
+    for n in node_names:
+        graph.add_node(pydot.Node(n, shape="none", label=n))
+
+    for e in edges:
+        graph.add_edge(e.mk_edge())
+
+    graph.write_png(ofname) # type: ignore
