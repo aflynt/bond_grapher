@@ -26,7 +26,6 @@ assign_causality_to_all_nodes(es)
 generate_symbols(es)
 
 
-'''
 for n in ns:
     graph.add_node(pydot.Node(n, shape="none", label=n))
 
@@ -36,4 +35,5 @@ for e in es:
 graph.write_png("graph_5p4.png") # type: ignore
 # graph.write_pdf("o.pdf") # type: ignore
 
+'''
 '''
