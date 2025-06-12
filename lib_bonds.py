@@ -205,13 +205,13 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
         # so only one port can bring in the effort
 
         # check if the node has a strong bond
-        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and NODE_ID in e.src.split("_")[0]
-                        or e.flow_side == FLOWSIDE.DEST and NODE_ID in e.dest.split("_")[0]]
-        if len(strong_bonds) > 1:
+        zero_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name in e.src
+                                         or e.flow_side == FLOWSIDE.DEST and node_name in e.dest]
+        if len(zero_strong_bond) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
-        elif len(strong_bonds) == 1:
-            strong_bond = strong_bonds[0]
+        elif len(zero_strong_bond) == 1:
+            strong_bond = zero_strong_bond[0]
 
             extension_list = []
             # extend causality to other edges connected to the node
@@ -259,14 +259,14 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
         # type "1" nodes are special, they have only one strong bond
         # so only one port can bring in the flow
         # check if the node has a strong bond
-        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and NODE_ID in e.dest.split("_")[0]
-                        or e.flow_side == FLOWSIDE.DEST and NODE_ID in e.src.split("_")[0]]
-        if len(strong_bonds) > 1:
+        one_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name in e.dest
+                                 or e.flow_side == FLOWSIDE.DEST and node_name in e.src]
+        if len(one_strong_bond) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
-        elif len(strong_bonds) == 1:
+        elif len(one_strong_bond) == 1:
             # non-strong bonds push flow out of node with node_name
-            strong_bond = strong_bonds[0]
+            strong_bond = one_strong_bond[0]
 
             extension_list = []
             # extend causality to other edges connected to the node
@@ -696,6 +696,87 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
 
     return equations, new_symbols
 
+def generate_symbols_for_zero_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for zero junctions
+    This function will create symbols like e_01, e_02, ..., e_99
+    0-junctions are special cases where the effort for all edges is equal to the effort of the strong edge
+    and the flows are summed up to equal zero.
+    """
+    equations = []
+    new_symbols = []
+    NODE_ID = "0"
+
+    # get list of edges with one node as a zero-junction
+    zero_junction_edges = [e for e in es if NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]]
+
+    # create a map from J0_name nodes to list of edges, (edge_1, edge_2, ...)
+    zero_junction_name_map = {}
+    for e in zero_junction_edges:
+        j_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+        if j_name not in zero_junction_name_map:
+            zero_junction_name_map[j_name] = []
+        zero_junction_name_map[j_name].append(e)
+
+    # create symbols for each zero-junction
+    for j_name, edges in zero_junction_name_map.items():
+
+        assert len(edges) > 1, f"Zero-junction {j_name} must have at least 2 edges connected to it, found {len(edges)}."
+
+        zero_strong_bond = [e for e in edges if e.flow_side == FLOWSIDE.SRC  and j_name in e.src
+                                         or e.flow_side == FLOWSIDE.DEST and j_name in e.dest]
+
+        if len(zero_strong_bond) > 1:
+            raise ValueError(f"Node {j_name} has more than one strong bond, which is not allowed.")
+
+        elif len(zero_strong_bond) == 1:
+            # non-strong bonds push flow out of node with j_name
+            strong_bond = zero_strong_bond[0]
+            strong_bond_num = strong_bond.num
+
+            # define the strong bond effort symbol
+            e_strong = sym.Symbol(f"e_{strong_bond_num:02d}", real=True)
+
+            # deal with effort symbols
+            for e in edges:
+                if e.num == strong_bond_num:
+                    continue  # skip the strong bond, we already have its effort symbol
+
+                # create symbols for the effort
+                e_nn = sym.Symbol(f"e_{e.num:02d}", real=True)
+                new_symbols.append(e_nn)
+
+                # create effort equations for the zero-junction
+                eq_f = sym.Eq(e_strong, e_nn)  # e_strong = e_nn
+                equations.append(eq_f)
+
+            flow_strs = []
+
+            # deal with flow symbols
+            for e in edges:
+                # create symbols for the flow
+                f_nn = sym.Symbol(f"f_{e.num:02d}", real=True)
+                new_symbols.append(f_nn)
+
+                # determine if power is flowing into the zero-junction from this edge
+                is_power_to_this_zero_junction = e.pwr_to_dest and e.dest == j_name or not e.pwr_to_dest and e.src == j_name
+                if is_power_to_this_zero_junction:
+                    # this edge is bringing power to the zero-junction
+                    # so we add the flow to the list of flows
+                    flow_strs.append(f"+{f_nn}")
+                else:
+                    # this edge is taking power from the zero-junction
+                    # so we subtract the flow from the list of flows
+                    flow_strs.append(f"-{f_nn}")
+
+            flow_str = "".join(flow_strs)
+            if flow_str:
+                # create flow equations for the zero-junction
+                eq_f = sym.Eq(sym.sympify(flow_str), 0)
+                equations.append(eq_f)
+
+    return equations, new_symbols
+
 def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
     """
     Generate unique symbols for one junctions
@@ -723,23 +804,24 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq],
 
         assert len(edges) > 1, f"One-junction {j_name} must have at least 2 edges connected to it, found {len(edges)}."
 
-        strong_bonds = [e for e in edges if e.flow_side == FLOWSIDE.SRC and NODE_ID in e.dest.split("_")[0]
-                        or e.flow_side == FLOWSIDE.DEST and NODE_ID in e.src.split("_")[0]]
+        one_strong_bonds = [e for e in edges if e.flow_side == FLOWSIDE.SRC and j_name in e.dest
+                        or e.flow_side == FLOWSIDE.DEST and j_name in e.src]
 
-        if len(strong_bonds) > 1:
+        if len(one_strong_bonds) > 1:
             raise ValueError(f"Node {j_name} has more than one strong bond, which is not allowed.")
 
-        elif len(strong_bonds) == 1:
+        elif len(one_strong_bonds) == 1:
             # non-strong bonds push flow out of node with j_name
-            strong_bond = strong_bonds[0]
+            strong_bond = one_strong_bonds[0]
             strong_bond_num = strong_bond.num
 
-            # define the strong bond flow and effort symbols
+            # define the strong bond flow symbol
             f_strong = sym.Symbol(f"f_{strong_bond_num:02d}", real=True)
-            e_strong = sym.Symbol(f"e_{strong_bond_num:02d}", real=True)
 
             # deal with flow symbols
             for e in edges:
+                if e.num == strong_bond_num:
+                    continue  # skip the strong bond, we already have its flow symbol
 
                 # create symbols for the flow
                 f_nn = sym.Symbol(f"f_{e.num:02d}", real=True)
@@ -887,8 +969,37 @@ def generate_symbols(es: list[FlyEdge]) -> None:
     equations.extend(new_eqs)
     symbols.extend(new_symbols)
 
+    new_eqs, new_symbols = generate_symbols_for_zero_junctions(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
     # print all equations
     print("\nEquations:")
     for eq in equations:
-        sym.pprint(eq)
-        print(eq)
+        sym.pprint(sym.simplify(eq))
+
+    print("\nSymbols:")
+    for symb in symbols:
+        sym.pprint(sym.simplify(symb))
+
+    # print equations in basic form
+    print("\nBasic Form Equations:")
+    for eq in equations:
+        print(sym.simplify(eq))
+
+    # print symbols in basic form
+    print("\nBasic Form Symbols:")
+    for symb in symbols:
+        print(sym.simplify(symb))
+
+    # write basic form of equations and symbols to a file
+    with open("bonds_equations.txt", "w") as f:
+
+        f.write("\nSymbols:\n")
+        for symb in symbols:
+            f.write(f"{sym.simplify(symb)}\n")
+
+        f.write("Equations:\n")
+        for eq in equations:
+            f.write(f"{sym.simplify(eq)}\n")
+
