@@ -202,8 +202,8 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
         # so only one port can bring in the effort
 
         # check if the node has a strong bond
-        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "0" in e.src
-                        or e.flow_side == FLOWSIDE.DEST and "0" in e.dest]
+        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "0" in e.src.split("_")[0]
+                        or e.flow_side == FLOWSIDE.DEST and "0" in e.dest.split("_")[0]]
         if len(strong_bonds) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
@@ -255,8 +255,8 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
         # type "1" nodes are special, they have only one strong bond
         # so only one port can bring in the flow
         # check if the node has a strong bond
-        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "1" in e.dest
-                        or e.flow_side == FLOWSIDE.DEST and "1" in e.src]
+        strong_bonds = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC and "1" in e.dest.split("_")[0]
+                        or e.flow_side == FLOWSIDE.DEST and "1" in e.src.split("_")[0]]
         if len(strong_bonds) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
