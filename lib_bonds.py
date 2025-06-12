@@ -679,6 +679,86 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
 
     return equations, new_symbols
 
+def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+    """
+    Generate unique symbols for one junctions
+    This function will create symbols like e_01, e_02, ..., e_99
+    1-junctions are special cases where the flow for all edges is equal to the flow of the strong edge
+    and the efforts are summed up to equal zero.
+    """
+    equations = []
+    new_symbols = []
+    KEY_NODE = "1"
+
+    # get list of edges with one node as a one-junction
+    one_junction_edges = [e for e in es if KEY_NODE in e.src.split("_")[0] or KEY_NODE in e.dest.split("_")[0]]
+
+    # create a map from J1_name nodes to list of edges, (edge_1, edge_2, ...)
+    one_junction_name_map = {}
+    for e in one_junction_edges:
+        j_name = e.src if KEY_NODE in e.src.split("_")[0] else e.dest
+        if j_name not in one_junction_name_map:
+            one_junction_name_map[j_name] = []
+        one_junction_name_map[j_name].append(e)
+
+    # create symbols for each one-junction
+    for j_name, edges in one_junction_name_map.items():
+
+        assert len(edges) > 1, f"One-junction {j_name} must have at least 2 edges connected to it, found {len(edges)}."
+
+        strong_bonds = [e for e in edges if e.flow_side == FLOWSIDE.SRC and KEY_NODE in e.dest.split("_")[0]
+                        or e.flow_side == FLOWSIDE.DEST and KEY_NODE in e.src.split("_")[0]]
+
+        if len(strong_bonds) > 1:
+            raise ValueError(f"Node {j_name} has more than one strong bond, which is not allowed.")
+
+        elif len(strong_bonds) == 1:
+            # non-strong bonds push flow out of node with j_name
+            strong_bond = strong_bonds[0]
+            strong_bond_num = strong_bond.num
+
+            # define the strong bond flow and effort symbols
+            f_strong = sym.Symbol(f"f_{strong_bond_num:02d}", real=True)
+            e_strong = sym.Symbol(f"e_{strong_bond_num:02d}", real=True)
+
+            # deal with flow symbols
+            for e in edges:
+
+                # create symbols for the flow
+                f_nn = sym.Symbol(f"f_{e.num:02d}", real=True)
+                new_symbols.append(f_nn)
+
+                # create flow equations for the one-junction
+                eq_f = sym.Eq(f_strong, f_nn)  # f_strong = f_nn
+                equations.append(eq_f)
+
+            effort_strs = []
+
+            # deal with effort symbols
+            for e in edges:
+                # create symbols for the effort
+                e_nn = sym.Symbol(f"e_{e.num:02d}", real=True)
+                new_symbols.append(e_nn)
+
+                # determine if power is flowing into the one-junction from this edge
+                is_power_to_this_one_junction = e.pwr_to_dest and e.dest == j_name or not e.pwr_to_dest and e.src == j_name
+                if is_power_to_this_one_junction:
+                    # this edge is bringing power to the one-junction
+                    # so we add the effort to the list of efforts
+                    effort_strs.append(f"+{e_nn}")
+                else:
+                    # this edge is taking power from the one-junction
+                    # so we subtract the effort from the list of efforts
+                    effort_strs.append(f"-{e_nn}")
+            
+            effort_str = "".join(effort_strs)
+            if effort_str:
+                # create effort equations for the one-junction
+                eq_e = sym.Eq(sym.sympify(effort_str), 0)
+                equations.append(eq_e)
+
+    return equations, new_symbols
+
 def generate_equations_for_I_storage_elements(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
     """
     Generate equations for storage elements I
@@ -780,6 +860,10 @@ def generate_symbols(es: list[FlyEdge]) -> None:
     symbols.extend(new_symbols)
 
     new_eqs, new_symbols = generate_equations_for_C_storage_elements(es)
+    equations.extend(new_eqs)
+    symbols.extend(new_symbols)
+
+    new_eqs, new_symbols = generate_symbols_for_one_junctions(es)
     equations.extend(new_eqs)
     symbols.extend(new_symbols)
 
