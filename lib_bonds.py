@@ -668,7 +668,6 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
 
         assert len(edges) == 2, f"{NODE_ID} element {tf_name} must have exactly 2 edges connected to it, found {len(edges)}."
 
-        new_symbols.append(tf_name)
 
         # deterine which edge has power flowing to the TF element
         edge_a = edges[0]
@@ -683,6 +682,9 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
             edge_1 = edge_a
             edge_2 = edge_b
 
+        tf_name_sym = sym.Symbol(f"TF_{edge_1.num:02d}_{edge_2.num:02d}", real=True)
+        new_symbols.append(tf_name_sym)
+
         e_1_nn = sym.Symbol(f"e_{edge_1.num:02d}", real=True)
         e_2_nn = sym.Symbol(f"e_{edge_2.num:02d}", real=True)
         f_1_nn = sym.Symbol(f"f_{edge_1.num:02d}", real=True)
@@ -690,8 +692,8 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
         new_symbols.extend([e_1_nn, e_2_nn, f_1_nn, f_2_nn])
 
         # create equations for the TF element
-        eq_1 = sym.Eq(e_1_nn, tf_name * e_2_nn)  # e_1 = TF_name * e_2
-        eq_2 = sym.Eq(f_2_nn, tf_name * f_1_nn)  # f_2 = TF_name * f_1
+        eq_1 = sym.Eq(e_1_nn, sym.Mul(tf_name_sym ,e_2_nn))  # e_1 = TF_name_sym * e_2
+        eq_2 = sym.Eq(f_2_nn, sym.Mul(tf_name_sym ,f_1_nn))  # f_2 = TF_name_sym * f_1
         equations.extend([eq_1, eq_2])
 
     return equations, new_symbols
