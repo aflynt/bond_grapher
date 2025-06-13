@@ -462,6 +462,7 @@
                                     endNodeId: node.id,
                                     label: label
                                 });
+                                draw(); // Draw immediately after adding the edge
                                 showMessage(`Edge created from ${edgeStartNode.label} to ${node.label}.`, 'success');
                             }
                             edgeStartNode = null; // Reset for next edge
@@ -556,6 +557,32 @@
             closeModalBtn.addEventListener('click', () => {
                 reportModal.classList.remove('show');
             });
+
+            // --- Generate Report Function ---
+            function generateReport() {
+                let report = "Nodes:\n";
+                if (nodes.length === 0) {
+                    report += "  No nodes in the graph.\n";
+                } else {
+                    nodes.forEach(node => {
+                        report += `  - ID: ${node.id}, Label: ${node.label}, Type: ${node.type}, X: ${node.x.toFixed(1)}, Y: ${node.y.toFixed(1)}\n`;
+                    });
+                }
+
+                report += "\nEdges:\n";
+                if (edges.length === 0) {
+                    report += "  No edges in the graph.\n";
+                } else {
+                    edges.forEach(edge => {
+                        const startNode = nodes.find(n => n.id === edge.startNodeId);
+                        const endNode = nodes.find(n => n.id === edge.endNodeId);
+                        const startLabel = startNode ? startNode.label : 'N/A';
+                        const endLabel = endNode ? endNode.label : 'N/A';
+                        report += `  - ID: ${edge.id}, Label: ${edge.label}, From: ${startLabel} (ID: ${edge.startNodeId}) To: ${endLabel} (ID: ${edge.endNodeId})\n`;
+                    });
+                }
+                return report;
+            }
 
             // --- Save Graph Logic ---
             saveGraphBtn.addEventListener('click', () => {
