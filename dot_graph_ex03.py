@@ -48,6 +48,6 @@ es = [ FlyEdge(num, pwr_fm_node, pwr_to_node, pwr_to_dest=1)
 
 assign_causality_to_all_nodes(es)
 
-generate_symbols(es)
+plot_graph(es, ns, f"graph_{CASE}.png")
 
-# plot_graph(es, ns, f"graph_{CASE}.png")
+report_equations(es, report_all=False, write=True)
