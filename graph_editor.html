@@ -114,6 +114,15 @@
                 </button>
             </div>
             <div class="flex-grow"></div>
+            <button id="save-graph-btn" class="w-full p-3 rounded-lg bg-green-500 text-white hover:bg-green-600 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                Save Graph
+            </button>
+            <button id="load-graph-btn" class="w-full p-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Load Graph
+            </button>
+            <input type="file" id="load-graph-input" accept=".json" style="display: none;">
             <button id="report-btn" class="w-full p-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 Report Graph
@@ -167,6 +176,9 @@
             const reportModal = document.getElementById('report-modal');
             const closeModalBtn = document.getElementById('close-modal-btn');
             const reportContent = document.getElementById('report-content');
+            const saveGraphBtn = document.getElementById('save-graph-btn');
+            const loadGraphBtn = document.getElementById('load-graph-btn');
+            const loadGraphInput = document.getElementById('load-graph-input');
 
 
             // --- State ---
@@ -179,6 +191,7 @@
             let dragStart = { x: 0, y: 0 };
             let edgeStartNode = null; // For creating new edges
             let nextId = 0;
+            let highestId = 0; // Keep track of the highest ID used
             
             // --- Constants ---
             const NODE_RADIUS = 10;
@@ -198,7 +211,10 @@
             window.addEventListener('resize', resizeCanvas);
 
             // --- Utility Functions ---
-            const getNextId = () => nextId++;
+            const getNextId = () => {
+                highestId++;
+                return highestId;
+            }
             const getMousePos = (evt) => {
                 const rect = canvas.getBoundingClientRect();
                 return {
@@ -449,7 +465,6 @@
                                 showMessage(`Edge created from ${edgeStartNode.label} to ${node.label}.`, 'success');
                             }
                             edgeStartNode = null; // Reset for next edge
-                            setMode('select'); // Switch to select mode after creating an edge
                         }
                     }
                 }
@@ -501,13 +516,10 @@
                 }
             }
 
-            Object.keys(toolButtons).forEach(key => {
-                toolButtons[key].addEventListener('click', () => setMode(key));
-            });
-            
-            function updateDeleteButton() {
-                deleteBtn.disabled = !selectedNode && !selectedEdge;
-            }
+            toolButtons.select.addEventListener('click', () => setMode('select'));
+            toolButtons.node.addEventListener('click', () => setMode('node'));
+            toolButtons.junction.addEventListener('click', () => setMode('junction'));
+            toolButtons.edge.addEventListener('click', () => setMode('edge'));
 
             deleteBtn.addEventListener('click', () => {
                 if (selectedNode) {
@@ -535,35 +547,9 @@
                 }
             });
 
-            // --- Report Logic ---
-            function generateReport() {
-                if (nodes.length === 0) {
-                    reportContent.textContent = "The graph is empty. Add some nodes and edges first!";
-                    return;
-                }
-
-                let reportText = "--- NODES ---\n";
-                nodes.forEach(n => {
-                    reportText += `ID: ${n.id}, Label: "${n.label}", Type: ${n.type}, Pos: (${Math.round(n.x)}, ${Math.round(n.y)})\n`;
-                });
-
-                reportText += "\n--- EDGES ---\n";
-                if(edges.length === 0) {
-                    reportText += "No edges in the graph.\n";
-                } else {
-                    edges.forEach(e => {
-                        const startNode = nodes.find(n => n.id === e.startNodeId);
-                        const endNode = nodes.find(n => n.id === e.endNodeId);
-                        if (startNode && endNode) {
-                            reportText += `"${startNode.label}" -> "${endNode.label}" (Label: ${e.label})\n`;
-                        }
-                    });
-                }
-                reportContent.textContent = reportText;
-            }
-
             reportBtn.addEventListener('click', () => {
-                generateReport();
+                const report = generateReport();
+                reportContent.textContent = report;
                 reportModal.classList.add('show');
             });
 
@@ -571,28 +557,59 @@
                 reportModal.classList.remove('show');
             });
 
-            reportModal.addEventListener('click', (e) => {
-                if (e.target === reportModal) {
-                    reportModal.classList.remove('show');
-                }
-            });
-            
-             // Keyboard shortcuts
-            window.addEventListener('keydown', (e) => {
-                if (e.key === 'Delete' || e.key === 'Backspace') {
-                    if (selectedNode || selectedEdge) {
-                        deleteBtn.click();
-                    }
-                } else if (e.key === 'Escape') {
-                     selectedNode = null;
-                     selectedEdge = null;
-                     edgeStartNode = null;
-                     setMode('select');
-                     reportModal.classList.remove('show'); // Also close modal on escape
-                     draw();
-                }
+            // --- Save Graph Logic ---
+            saveGraphBtn.addEventListener('click', () => {
+                const graphData = {
+                    nodes: nodes,
+                    edges: edges,
+                    nextId: highestId + 1 // Save the next available ID
+                };
+                const dataStr = JSON.stringify(graphData, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'graph.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showMessage('Graph saved successfully!', 'success');
             });
 
+            // --- Load Graph Logic ---
+            loadGraphBtn.addEventListener('click', () => {
+                loadGraphInput.click(); // Trigger hidden file input
+            });
+
+            loadGraphInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const graphData = JSON.parse(e.target.result);
+                            if (graphData && graphData.nodes && graphData.edges && graphData.nextId !== undefined) {
+                                nodes = graphData.nodes;
+                                edges = graphData.edges;
+                                nextId = graphData.nextId; // Restore the next ID
+                                highestId = graphData.nodes.reduce((max, node) => Math.max(max, node.id), 0);
+                                highestId = graphData.edges.reduce((max, edge) => Math.max(max, edge.id), highestId);
+                                highestId = Math.max(highestId, graphData.nextId -1); // Ensure highestId is consistent
+
+                                draw();
+                                showMessage('Graph loaded successfully!', 'success');
+                            } else {
+                                showMessage('Invalid graph file format.', 'error');
+                            }
+                        } catch (error) {
+                            showMessage(`Error loading graph: ${error.message}`, 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                    loadGraphInput.value = null; // Reset file input
+                }            
+            });
 
             // --- Initialization ---
             function initialize() {
