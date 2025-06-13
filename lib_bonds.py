@@ -59,38 +59,26 @@ class FlyNode:
     def get_name(self):
         return self.name
 
-class FlyNodeSE(FlyNode):
-    def __init__(self, name  ):
-        super().__init__(name, NODETYPE.SE)
 
-class FlyNodeSF(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.SF)
+class SymbolManager:
+    def __init__(self):
+        self.symbols = {}
 
-class FlyNodeR(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.R)
-
-class FlyNodeI(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.I)
-
-class FlyNodeC(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.C)
-
-class FlyNodeTF(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.TF)
-
-class FlyNodeZERO(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.ZERO)
-
-class FlyNodeONE(FlyNode):
-    def __init__(self, name ):
-        super().__init__(name, NODETYPE.ONE)
-
+    def get_symbol(self, name: str) -> sym.Symbol:
+        """
+        Get a symbol by name, creating it if it doesn't exist.
+        """
+        if name not in self.symbols:
+            self.symbols[name] = sym.Symbol(name, real=True)
+        return self.symbols[name]
+    
+    def add_symbol(self, name: str) -> sym.Symbol:
+        """
+        Add a new symbol by name, creating it if it doesn't exist.
+        """
+        if name not in self.symbols:
+            self.symbols[name] = sym.Symbol(name, real=True)
+        return self.symbols[name]
 
 def append_unique_symbol(sym_list: list[sym.Symbol], new_sym: sym.Symbol) -> list[sym.Symbol]:
     """
@@ -474,17 +462,16 @@ def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
         if any_flow_side_idk:
             print("Some edges still have flow_side set to IDK, which is not great.")
         else:
-            print("All edges have their flow_side set correctly.")
+            print("All edges have their flow_side set.")
 
 
-def generate_symbols_for_SF(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_SF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for SF elements 
     This function will create symbols like SF_01, SF_02, ..., SF_99
     """
     NODE_ID = "SF"
     equations = []
-    new_symbols = []
 
     # get list of source of flow symbols
     sf_nums = [e.num for e in es if 
@@ -495,17 +482,15 @@ def generate_symbols_for_SF(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.
     for sf_num in sf_nums:
 
         # create symbol SF_nn, then equate f_nn = SF_nn
-        unique_f_sym = sym.Symbol(f"SF_{sf_num:02d}", real=True)
-        generic_f_sym = sym.Symbol(f"f_{sf_num:02d}", real=True)
-        append_unique_symbol(new_symbols, unique_f_sym)
-        append_unique_symbol(new_symbols, generic_f_sym)
+        sf_f_sym = sm.add_symbol(f"SF_{sf_num:02d}")
+        ff_f_sym = sm.add_symbol(f"f_{sf_num:02d}")
 
-        eq = sym.Eq(generic_f_sym, unique_f_sym)
+        eq = sym.Eq(ff_f_sym, sf_f_sym)
         equations.append(eq)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_SE(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_SE(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for SE elements
     This function will create symbols like SE_01, SE_02, ..., SE_99
@@ -513,7 +498,6 @@ def generate_symbols_for_SE(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
     # equation list
     NODE_ID = "SE"
     equations = []
-    new_symbols = []
 
     # get list of source of effort symbols
     se_nums = [e.num for e in es if 
@@ -524,17 +508,15 @@ def generate_symbols_for_SE(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
     for se_num in se_nums:
 
         # create symbol SE_nn, then equate e_nn = SE_nn
-        unique_e_sym = sym.Symbol(f"SE_{se_num:02d}", real=True)
-        generic_e_sym = sym.Symbol(f"e_{se_num:02d}", real=True)
-        append_unique_symbol(new_symbols, unique_e_sym)
-        append_unique_symbol(new_symbols, generic_e_sym)
+        se_e_sym = sm.add_symbol(f"SE_{se_num:02d}")
+        ee_e_sym = sm.add_symbol(f"e_{se_num:02d}")
 
-        eq = sym.Eq(generic_e_sym, unique_e_sym)
+        eq = sym.Eq(ee_e_sym, se_e_sym)
         equations.append(eq)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_I(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_I(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for I elements
     This function will create symbols like I_01, I_02, ..., I_99
@@ -542,7 +524,6 @@ def generate_symbols_for_I(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.S
     # equation list
     NODE_ID = "I"
     equations = []
-    new_symbols = []
 
     # get list of I symbols
     I_nums = [e.num for e in es if 
@@ -552,21 +533,17 @@ def generate_symbols_for_I(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.S
     # create symbol [I,p]_nn, then generate equation
     for i_num in I_nums:
 
-        I_nn = sym.Symbol(f"I_{i_num:02d}", real=True)
-        p_nn = sym.Symbol(f"p_{i_num:02d}", real=True)
-        f_nn = sym.Symbol(f"f_{i_num:02d}", real=True)
-
-        append_unique_symbol(new_symbols, I_nn)
-        append_unique_symbol(new_symbols, p_nn)
-        append_unique_symbol(new_symbols, f_nn)
+        I_nn = sm.add_symbol(f"I_{i_num:02d}")
+        p_nn = sm.add_symbol(f"p_{i_num:02d}")
+        f_nn = sm.add_symbol(f"f_{i_num:02d}")
 
         # equation is always f_nn = p_nn / I_nn
         eq = sym.Eq(f_nn, p_nn / I_nn) # type: ignore
         equations.append(eq)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_C(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_C(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for C elements
     This function will create symbols like C_01, C_02, ..., C_99
@@ -574,7 +551,6 @@ def generate_symbols_for_C(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.S
     # equation list
     NODE_ID = "C"
     equations = []
-    new_symbols = []
 
     # get list of C symbols
     C_nums = [e.num for e in es if 
@@ -584,21 +560,17 @@ def generate_symbols_for_C(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.S
     # create symbol [C,q]_nn, then generate equation
     for c_num in C_nums:
 
-        C_nn = sym.Symbol(f"C_{c_num:02d}", real=True)
-        q_nn = sym.Symbol(f"q_{c_num:02d}", real=True)
-        e_nn = sym.Symbol(f"e_{c_num:02d}", real=True)
-
-        append_unique_symbol(new_symbols, C_nn)
-        append_unique_symbol(new_symbols, q_nn)
-        append_unique_symbol(new_symbols, e_nn)
+        C_nn = sm.add_symbol(f"C_{c_num:02d}")
+        q_nn = sm.add_symbol(f"q_{c_num:02d}")
+        e_nn = sm.add_symbol(f"e_{c_num:02d}")
 
         # equation is always e_nn = q_nn / C_nn
         eq = sym.Eq(e_nn, q_nn / C_nn) # type: ignore
         equations.append(eq)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_R(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_R(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for R elements
     This function will create symbols like R_01, R_02, ..., R_99
@@ -606,7 +578,6 @@ def generate_symbols_for_R(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Sy
     # equation list
     NODE_ID = "R"
     equations = []
-    new_symbols = []
 
     for e in es:
 
@@ -617,14 +588,9 @@ def generate_symbols_for_R(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Sy
 
             is_R_on_src = NODE_ID in e.src.split("_")[0]
 
-            r_num = e.num
-            R_nn = sym.Symbol(f"R_{r_num:02d}", real=True)
-            e_nn = sym.Symbol(f"e_{r_num:02d}", real=True)
-            f_nn = sym.Symbol(f"f_{r_num:02d}", real=True)
-
-            append_unique_symbol(new_symbols, R_nn)
-            append_unique_symbol(new_symbols, e_nn)
-            append_unique_symbol(new_symbols, f_nn)
+            R_nn = sm.add_symbol(f"R_{e.num:02d}")
+            e_nn = sm.add_symbol(f"e_{e.num:02d}")
+            f_nn = sm.add_symbol(f"f_{e.num:02d}")
 
             if is_R_on_src:
                 if e.flow_side == FLOWSIDE.SRC:
@@ -650,9 +616,9 @@ def generate_symbols_for_R(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Sy
                     eq = sym.Eq(f_nn, e_nn / R_nn) # type: ignore
                     equations.append(eq)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_TF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for TF elements
     This function will create symbols like TF_01, TF_02, ..., TF_99
@@ -660,7 +626,6 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
     NODE_ID = "TF"
     # equation list
     equations = []
-    new_symbols = []
 
     # create a map from TF_name nodes to tuple of (edge_1, edge_2) pairs
     tf_name_map = {}
@@ -696,26 +661,22 @@ def generate_symbols_for_TF(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.S
             edge_1 = edge_a
             edge_2 = edge_b
 
-        tf_name_sym = sym.Symbol(f"TF_{edge_1.num:02d}_{edge_2.num:02d}", real=True)
-        append_unique_symbol(new_symbols, tf_name_sym)
+        tf_name_str = f"TF_{edge_1.num:02d}"
+        tf_sym = sm.add_symbol(tf_name_str)
 
-        e_1_nn = sym.Symbol(f"e_{edge_1.num:02d}", real=True)
-        e_2_nn = sym.Symbol(f"e_{edge_2.num:02d}", real=True)
-        f_1_nn = sym.Symbol(f"f_{edge_1.num:02d}", real=True)
-        f_2_nn = sym.Symbol(f"f_{edge_2.num:02d}", real=True)
-        append_unique_symbol(new_symbols, e_1_nn)
-        append_unique_symbol(new_symbols, e_2_nn)
-        append_unique_symbol(new_symbols, f_1_nn)
-        append_unique_symbol(new_symbols, f_2_nn)
+        e_1_nn = sm.get_symbol(f"e_{edge_1.num:02d}")
+        e_2_nn = sm.get_symbol(f"e_{edge_2.num:02d}")
+        f_1_nn = sm.get_symbol(f"f_{edge_1.num:02d}")
+        f_2_nn = sm.get_symbol(f"f_{edge_2.num:02d}")
 
         # create equations for the TF element
-        eq_1 = sym.Eq(e_1_nn, sym.Mul(tf_name_sym ,e_2_nn))  # e_1 = TF_name_sym * e_2
-        eq_2 = sym.Eq(f_2_nn, sym.Mul(tf_name_sym ,f_1_nn))  # f_2 = TF_name_sym * f_1
+        eq_1 = sym.Eq(e_1_nn, sym.Mul(tf_sym ,e_2_nn))  # e_1 = TF_name_sym * e_2
+        eq_2 = sym.Eq(f_2_nn, sym.Mul(tf_sym ,f_1_nn))  # f_2 = TF_name_sym * f_1
         equations.extend([eq_1, eq_2])
 
-    return equations, new_symbols
+    return equations 
 
-def generate_symbols_for_zero_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_zero_junctions(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for zero junctions
     This function will create symbols like e_01, e_02, ..., e_99
@@ -723,13 +684,12 @@ def generate_symbols_for_zero_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq]
     and the flows are summed up to equal zero.
     """
     equations = []
-    new_symbols = []
     NODE_ID = "0"
 
     # get list of edges with one node as a zero-junction
     zero_junction_edges = [e for e in es if NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]]
 
-    # create a map from J0_name nodes to list of edges, (edge_1, edge_2, ...)
+    # create a map from J0_name node to list of edges, (edge_1, edge_2, ...)
     zero_junction_name_map = {}
     for e in zero_junction_edges:
         j_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
@@ -754,7 +714,7 @@ def generate_symbols_for_zero_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq]
             strong_bond_num = strong_bond.num
 
             # define the strong bond effort symbol
-            e_strong = sym.Symbol(f"e_{strong_bond_num:02d}", real=True)
+            e_strong = sm.add_symbol(f"e_{strong_bond_num:02d}")
 
             # deal with effort symbols
             for e in edges:
@@ -762,41 +722,38 @@ def generate_symbols_for_zero_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq]
                     continue  # skip the strong bond, we already have its effort symbol
 
                 # create symbols for the effort
-                e_nn = sym.Symbol(f"e_{e.num:02d}", real=True)
-                append_unique_symbol(new_symbols, e_nn)
+                e_nn = sm.add_symbol(f"e_{e.num:02d}")
 
                 # create effort equations for the zero-junction
                 eq_f = sym.Eq(e_strong, e_nn)  # e_strong = e_nn
                 equations.append(eq_f)
 
-            flow_strs = []
 
+            exprs = []
             # deal with flow symbols
             for e in edges:
                 # create symbols for the flow
-                f_nn = sym.Symbol(f"f_{e.num:02d}", real=True)
-                append_unique_symbol(new_symbols, f_nn)
+                f_nn = sm.add_symbol(f"f_{e.num:02d}")
 
                 # determine if power is flowing into the zero-junction from this edge
                 is_power_to_this_zero_junction = e.pwr_to_dest and e.dest == j_name or not e.pwr_to_dest and e.src == j_name
                 if is_power_to_this_zero_junction:
                     # this edge is bringing power to the zero-junction
                     # so we add the flow to the list of flows
-                    flow_strs.append(f"+{f_nn}")
+                    exprs.append(sym.Add(0, f_nn))
                 else:
                     # this edge is taking power from the zero-junction
                     # so we subtract the flow from the list of flows
-                    flow_strs.append(f"-{f_nn}")
+                    exprs.append(sym.Add(0, sym.Mul(sym.Integer(-1), f_nn)))
 
-            flow_str = "".join(flow_strs)
-            if flow_str:
+            if exprs:
                 # create flow equations for the zero-junction
-                eq_f = sym.Eq(sym.sympify(flow_str), 0)
+                eq_f = sym.Eq(sym.Add(*exprs), 0)
                 equations.append(eq_f)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols_for_one_junctions(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for one junctions
     This function will create symbols like e_01, e_02, ..., e_99
@@ -804,7 +761,6 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq],
     and the efforts are summed up to equal zero.
     """
     equations = []
-    new_symbols = []
     NODE_ID = "1"
 
     # get list of edges with one node as a one-junction
@@ -835,7 +791,7 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq],
             strong_bond_num = strong_bond.num
 
             # define the strong bond flow symbol
-            f_strong = sym.Symbol(f"f_{strong_bond_num:02d}", real=True)
+            f_strong = sm.add_symbol(f"f_{strong_bond_num:02d}")
 
             # deal with flow symbols
             for e in edges:
@@ -843,69 +799,60 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge]) -> tuple[list[sym.Eq],
                     continue  # skip the strong bond, we already have its flow symbol
 
                 # create symbols for the flow
-                f_nn = sym.Symbol(f"f_{e.num:02d}", real=True)
-                append_unique_symbol(new_symbols, f_nn)
+                f_nn = sm.add_symbol(f"f_{e.num:02d}")
 
                 # create flow equations for the one-junction
                 eq_f = sym.Eq(f_strong, f_nn)  # f_strong = f_nn
                 equations.append(eq_f)
 
-            effort_strs = []
-
+            exprs = []
             # deal with effort symbols
             for e in edges:
                 # create symbols for the effort
-                e_nn = sym.Symbol(f"e_{e.num:02d}", real=True)
-                append_unique_symbol(new_symbols, e_nn)
+                e_nn = sm.add_symbol(f"e_{e.num:02d}")
 
                 # determine if power is flowing into the one-junction from this edge
                 is_power_to_this_one_junction = e.pwr_to_dest and e.dest == j_name or not e.pwr_to_dest and e.src == j_name
                 if is_power_to_this_one_junction:
                     # this edge is bringing power to the one-junction
                     # so we add the effort to the list of efforts
-                    effort_strs.append(f"+{e_nn}")
+                    exprs.append(sym.Add(0, e_nn))
                 else:
                     # this edge is taking power from the one-junction
                     # so we subtract the effort from the list of efforts
-                    effort_strs.append(f"-{e_nn}")
-            
-            effort_str = "".join(effort_strs)
-            if effort_str:
+                    exprs.append(sym.Add(0, sym.Mul(sym.Integer(-1), e_nn)))
+
+            if exprs:
                 # create effort equations for the one-junction
-                eq_e = sym.Eq(sym.sympify(effort_str), 0)
+                eq_e = sym.Eq(sym.Add(*exprs), 0)
                 equations.append(eq_e)
 
-    return equations, new_symbols
+    return equations
 
-def generate_equations_for_I_storage_elements(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_equations_for_I_storage_elements(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate equations for storage elements I
     """
     NODE_ID = "I"
 
     equations = []
-    new_symbols = []
 
     for e in es:
         is_I_storage_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
 
         if is_I_storage_element:
             # this edge has an I storage element
-            i_num = e.num
-            pdot_nn = sym.Symbol(f"pdot_{i_num:02d}", real=True)
-            e_nn = sym.Symbol(f"e_{i_num:02d}", real=True)
-
-            append_unique_symbol(new_symbols, pdot_nn)
-            append_unique_symbol(new_symbols, e_nn)
+            pdot_nn = sm.add_symbol(f"pdot_{e.num:02d}")
+            e_nn = sm.add_symbol(f"e_{e.num:02d}")
 
             # create equations for the storage element
             # pdot_nn = e_nn
-            eq_1 = sym.Eq(pdot_nn , e_nn) # type: ignore 
+            eq_1 = sym.Eq(pdot_nn , e_nn)
             equations.append(eq_1)
 
-    return equations, new_symbols
+    return equations 
 
-def generate_equations_for_C_storage_elements(es: list[FlyEdge] ) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_equations_for_C_storage_elements(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate equations for storage elements C
     """
@@ -913,136 +860,141 @@ def generate_equations_for_C_storage_elements(es: list[FlyEdge] ) -> tuple[list[
     NODE_ID = "C"
 
     equations = []
-    new_symbols = []
 
     for e in es:
         is_C_storage_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
 
         if is_C_storage_element:
             # this edge has an C storage element
-            i_num = e.num
-            qdot_nn = sym.Symbol(f"qdot_{i_num:02d}", real=True)
-            f_nn = sym.Symbol(f"f_{i_num:02d}", real=True)
+            qdot_nn = sm.add_symbol(f"qdot_{e.num:02d}")
+            f_nn = sm.add_symbol(f"f_{e.num:02d}")
 
-            append_unique_symbol(new_symbols, qdot_nn)
-            append_unique_symbol(new_symbols, f_nn)
 
             # create equations for the storage element
             # qdot_nn = f_nn
-            eq_1 = sym.Eq(qdot_nn , f_nn) # type: ignore 
+            eq_1 = sym.Eq(qdot_nn , f_nn)
             equations.append(eq_1)
 
-    return equations, new_symbols
+    return equations
 
-def generate_symbols(es: list[FlyEdge]) -> tuple[list[sym.Eq], list[sym.Symbol]]:
+def generate_symbols(es: list[FlyEdge]) -> tuple[list[sym.Eq], SymbolManager]:
     """
     Generate symbols for the bonds
     """
-    sym.init_printing(use_unicode=True)
 
     equations = []
-    symbols = []
-
-    # pull out the numbers from the edges
-    nums = [e.num for e in es]
+    sm = SymbolManager()
 
     # generate symbols for f and e
     # f_01, f_02, ..., f_99
     # e_01, e_02, ..., e_99
-    f_symbols = [sym.Symbol(f"f_{num:02d}", real=True) for num in nums]
-    e_symbols = [sym.Symbol(f"e_{num:02d}", real=True) for num in nums]
-    for f_sym, e_sym in zip(f_symbols, e_symbols):
-        append_unique_symbol(symbols, f_sym)
-        append_unique_symbol(symbols, e_sym)
+    for e in es:
+        sm.add_symbol(f"f_{e.num:02d}")
+        sm.add_symbol(f"e_{e.num:02d}")
 
-    new_eqs, new_symbols = generate_symbols_for_SF(es)
+    new_eqs = generate_symbols_for_SF(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_SE(es)
+    new_eqs = generate_symbols_for_SE(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_I(es)
+    new_eqs = generate_symbols_for_I(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_C(es)
+    new_eqs= generate_symbols_for_C(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_R(es)
+    new_eqs= generate_symbols_for_R(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_TF(es)
+    new_eqs= generate_symbols_for_TF(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_equations_for_I_storage_elements(es)
+    new_eqs= generate_equations_for_I_storage_elements(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_equations_for_C_storage_elements(es)
+    new_eqs= generate_equations_for_C_storage_elements(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_one_junctions(es)
+    new_eqs= generate_symbols_for_one_junctions(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    new_eqs, new_symbols = generate_symbols_for_zero_junctions(es)
+    new_eqs= generate_symbols_for_zero_junctions(es, sm)
     equations.extend(new_eqs)
-    for s in new_symbols:
-        append_unique_symbol(symbols, s)
 
-    return equations, symbols
+    return equations, sm
 
 
-def report_equations(equations: list[sym.Eq], symbols: list[sym.Symbol], write: bool) -> None:
+def report_equations(es: list[FlyEdge], report_all: bool, write: bool) -> None:
     """
     Report the equations and symbols
     """
-    # PRETTY PRINTING
     sym.init_printing(use_unicode=True)
-    print("Equations and Symbols:")
-    print("\nEquations:")
-    for eq in equations:
-        sym.pprint(sym.simplify(eq))
 
-    print("\nSymbols:")
-    for symb in symbols:
-        sym.pprint(sym.simplify(symb))
+    equations, sm = generate_symbols(es)
+    symbols = [s for s in sm.symbols.values() if s.name.startswith(('pdot_', 'qdot_', 'e_', 'f_' ))]
+    dot_vars = [s for s in sm.symbols.values() if s.name.startswith(('pdot_', 'qdot_'))]
+
+    solution_explicit = sym.solve(equations, symbols, dict=True)
+
+    final_answers = []
+
+    if solution_explicit:
+        sol = solution_explicit[0]
+        for k,v in sol.items():
+            if k in dot_vars:
+                pq_sol = sol.get(k)
+                if pq_sol is not None:
+                    ans_pretty = sym.pretty(sym.simplify(sym.Eq(k, pq_sol)))
+                    ans_str = f"{k} = {pq_sol}"
+                    final_answers.append((ans_str, ans_pretty))
+    
+    for basic_ans, _ in final_answers:
+        print(basic_ans)
+
+    for _, pretty_ans in final_answers:
+        print(pretty_ans)
 
 
-    print("\nBasic Form Equations:")
-    for eq in equations:
-        print(sym.simplify(eq))
+    if report_all:
+        print("\nFormal Equations:")
+        for eq in equations:
+            sym.pprint(sym.simplify(eq))
 
-    print("\nBasic Form Symbols:")
-    for symb in symbols:
-        print(sym.simplify(symb))
+        print("\nFormal Symbols:")
+        for symb in sm.symbols.values():
+            sym.pprint(symb)
+
+        print("\nBasic Form Equations:")
+        for eq in equations:
+            print(sym.simplify(eq))
+
+        print("\nBasic Form Symbols:")
+        for symb in sm.symbols.values():
+            print(symb)
 
     # write basic form of equations and symbols to a file
     if write:
-        with open("bonds_equations.txt", "w") as f:
+        with open("bonds_equations.txt", "w", encoding="utf-8") as f:
 
-            f.write("\nSymbols:\n")
-            for symb in symbols:
-                f.write(f"{sym.simplify(symb)}\n")
+            f.write("Final Answers:\n\n")
+            for _, pretty_ans in final_answers:
+                f.write(pretty_ans)
+                f.write("\n")
+            
+            f.write("\n")
+            for basic_ans, _ in final_answers:
+                f.write(basic_ans)
+                f.write("\n")
 
-            f.write("Equations:\n")
-            for eq in equations:
-                f.write(f"{sym.simplify(eq)}\n")
+            if report_all:
+                f.write("\nSymbols:\n\n")
+                for symb in sm.symbols.values():
+                    f.write(f"{sym.simplify(symb)}\n")
+
+                f.write("\nEquations:\n\n")
+                for eq in equations:
+                    f.write(f"{sym.simplify(eq)}\n")
 
 
 def plot_graph(edges: list[FlyEdge], node_names: list[str], ofname: str) -> None:
