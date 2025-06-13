@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,6 +48,39 @@
         .message-box.error {
             background-color: #ef4444; /* red-500 */
         }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.3s ease-in-out;
+        }
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 flex flex-col h-screen">
@@ -82,6 +114,10 @@
                 </button>
             </div>
             <div class="flex-grow"></div>
+            <button id="report-btn" class="w-full p-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Report Graph
+            </button>
             <button id="delete-btn" class="w-full p-3 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Delete Selected
@@ -101,6 +137,18 @@
     <!-- Message Box -->
     <div id="message-box" class="message-box"></div>
 
+    <!-- Report Modal -->
+    <div id="report-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Graph Report</h2>
+                <button id="close-modal-btn" class="text-2xl font-bold text-slate-500 hover:text-slate-800">&times;</button>
+            </div>
+            <pre id="report-content" class="bg-slate-100 p-4 rounded-md text-sm whitespace-pre-wrap"></pre>
+        </div>
+    </div>
+
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM Elements ---
@@ -115,6 +163,11 @@
             const deleteBtn = document.getElementById('delete-btn');
             const clearBtn = document.getElementById('clear-btn');
             const messageBox = document.getElementById('message-box');
+            const reportBtn = document.getElementById('report-btn');
+            const reportModal = document.getElementById('report-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const reportContent = document.getElementById('report-content');
+
 
             // --- State ---
             let nodes = [];
@@ -481,6 +534,48 @@
                     showMessage('Canvas cleared.', 'success');
                 }
             });
+
+            // --- Report Logic ---
+            function generateReport() {
+                if (nodes.length === 0) {
+                    reportContent.textContent = "The graph is empty. Add some nodes and edges first!";
+                    return;
+                }
+
+                let reportText = "--- NODES ---\n";
+                nodes.forEach(n => {
+                    reportText += `ID: ${n.id}, Label: "${n.label}", Type: ${n.type}, Pos: (${Math.round(n.x)}, ${Math.round(n.y)})\n`;
+                });
+
+                reportText += "\n--- EDGES ---\n";
+                if(edges.length === 0) {
+                    reportText += "No edges in the graph.\n";
+                } else {
+                    edges.forEach(e => {
+                        const startNode = nodes.find(n => n.id === e.startNodeId);
+                        const endNode = nodes.find(n => n.id === e.endNodeId);
+                        if (startNode && endNode) {
+                            reportText += `"${startNode.label}" -> "${endNode.label}" (Label: ${e.label})\n`;
+                        }
+                    });
+                }
+                reportContent.textContent = reportText;
+            }
+
+            reportBtn.addEventListener('click', () => {
+                generateReport();
+                reportModal.classList.add('show');
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                reportModal.classList.remove('show');
+            });
+
+            reportModal.addEventListener('click', (e) => {
+                if (e.target === reportModal) {
+                    reportModal.classList.remove('show');
+                }
+            });
             
              // Keyboard shortcuts
             window.addEventListener('keydown', (e) => {
@@ -493,6 +588,7 @@
                      selectedEdge = null;
                      edgeStartNode = null;
                      setMode('select');
+                     reportModal.classList.remove('show'); // Also close modal on escape
                      draw();
                 }
             });
