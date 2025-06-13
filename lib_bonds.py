@@ -925,7 +925,7 @@ def generate_symbols(es: list[FlyEdge]) -> tuple[list[sym.Eq], SymbolManager]:
     return equations, sm
 
 
-def report_equations(es: list[FlyEdge], report_all: bool, write: bool) -> None:
+def report_equations(es: list[FlyEdge], report_all: bool, file_name: str | None= None) -> None:
     """
     Report the equations and symbols
     """
@@ -974,8 +974,8 @@ def report_equations(es: list[FlyEdge], report_all: bool, write: bool) -> None:
             print(symb)
 
     # write basic form of equations and symbols to a file
-    if write:
-        with open("bonds_equations.txt", "w", encoding="utf-8") as f:
+    if file_name is not None:
+        with open(file_name, "w", encoding="utf-8") as f:
 
             f.write("Final Answers:\n\n")
             for _, pretty_ans in final_answers:

@@ -4,4 +4,5 @@ __pycache__
 *pyc
 .vscode
 
-bonds_equations.*
+bonds_equations*
+bond_equations*
