@@ -96,42 +96,42 @@
         <aside class="w-48 bg-white p-4 space-y-4 shadow-md flex flex-col">
             <h2 class="text-lg font-semibold border-b pb-2">Tools</h2>
             <div class="space-y-2">
-                <button id="select-tool" class="tool-btn w-full text-left p-3 rounded-lg bg-slate-200 hover:bg-slate-300">
+                <button id="select-tool" class="tool-btn w-full text-left p-2 rounded-lg bg-slate-200 hover:bg-slate-300">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="m13 13 6 6"></path></svg>
                     Select
                 </button>
-                <button id="node-tool" class="tool-btn w-full text-left p-3 rounded-lg bg-slate-200 hover:bg-slate-300">
+                <button id="node-tool" class="tool-btn w-full text-left p-2 rounded-lg bg-slate-200 hover:bg-slate-300">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><circle cx="12" cy="12" r="2"></circle><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="m4.93 4.93 2.83 2.83"></path><path d="m16.24 16.24 2.83 2.83"></path><path d="M2 12h4"></path><path d="M18 12h4"></path><path d="m4.93 19.07 2.83-2.83"></path><path d="m16.24 7.76 2.83-2.83"></path></svg>
                     Add Node
                 </button>
-                 <button id="junction-tool" class="tool-btn w-full text-left p-3 rounded-lg bg-slate-200 hover:bg-slate-300">
+                 <button id="junction-tool" class="tool-btn w-full text-left p-2 rounded-lg bg-slate-200 hover:bg-slate-300">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
                     Add Junction
                 </button>
-                <button id="edge-tool" class="tool-btn w-full text-left p-3 rounded-lg bg-slate-200 hover:bg-slate-300">
+                <button id="edge-tool" class="tool-btn w-full text-left p-2 rounded-lg bg-slate-200 hover:bg-slate-300">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                     Add Edge
                 </button>
             </div>
             <div class="flex-grow"></div>
-            <button id="save-graph-btn" class="w-full p-3 rounded-lg bg-green-500 text-white hover:bg-green-600 mb-2">
+            <button id="save-graph-btn" class="w-full p-2 rounded-lg bg-green-500 text-white hover:bg-green-600 mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                 Save Graph
             </button>
-            <button id="load-graph-btn" class="w-full p-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 mb-2">
+            <button id="load-graph-btn" class="w-full p-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 Load Graph
             </button>
             <input type="file" id="load-graph-input" accept=".json" style="display: none;">
-            <button id="report-btn" class="w-full p-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 mb-2">
+            <button id="report-btn" class="w-full p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 Report Graph
             </button>
-            <button id="delete-btn" class="w-full p-3 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed">
+            <button id="delete-btn" class="w-full p-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Delete Selected
             </button>
-             <button id="clear-btn" class="w-full p-3 rounded-lg bg-slate-500 text-white hover:bg-slate-600">
+             <button id="clear-btn" class="w-full p-2 rounded-lg bg-slate-500 text-white hover:bg-slate-600">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>
                 Clear Canvas
             </button>
@@ -346,7 +346,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 edges.forEach(drawEdge);
                 nodes.forEach(drawNode);
-                updateDeleteButton();
+                updateDeleteButton(); // Call to update the delete button state
             }
 
             // --- Interaction Logic ---
@@ -457,24 +457,40 @@
                         draw();
                     }
                 } else if (currentMode === 'edge') {
-                    const node = getNodeAtPos(pos);
-                    if (node) {
-                        if (!edgeStartNode) {
-                            edgeStartNode = node;
-                            showMessage(`Selected start node: ${node.label}. Click an end node.`, 'success');
-                        } else if (edgeStartNode !== node) {
-                            const label = prompt("Enter label for new edge:", `${edges.length + 1}`);
-                             if (label !== null) { // Check if user cancelled prompt
-                                edges.push({
-                                    id: getNextId(),
-                                    startNodeId: edgeStartNode.id,
-                                    endNodeId: node.id,
-                                    label: label
-                                });
-                                draw(); // Draw immediately after adding the edge
-                                showMessage(`Edge created from ${edgeStartNode.label} to ${node.label}.`, 'success');
+                    const clickedNode = getNodeAtPos(pos);
+
+                    if (!edgeStartNode) { // If no start node is currently selected
+                        if (clickedNode) { // And the user clicked on a node
+                            edgeStartNode = clickedNode;
+                            showMessage(`Selected start node: ${clickedNode.label}. Click an end node.`, 'success');
+                        }
+                        // If no start node selected and clicked empty space, do nothing.
+                    } else { // A start node IS currently selected (edgeStartNode is not null)
+                        if (clickedNode) { // And the user clicked on a node
+                            if (edgeStartNode !== clickedNode) { // And it's a DIFFERENT node (potential end node)
+                                const label = prompt("Enter label for new edge:", `${edges.length + 1}`);
+                                if (label !== null) { // User provided a label
+                                    edges.push({
+                                        id: getNextId(),
+                                        startNodeId: edgeStartNode.id,
+                                        endNodeId: clickedNode.id,
+                                        label: label
+                                    });
+                                    draw(); // Draw immediately after adding the edge
+                                    showMessage(`Edge created from ${edgeStartNode.label} to ${clickedNode.label}.`, 'success');
+                                    setMode('select'); // Switch to select mode as requested
+                                    setMode('edge');   // Immediately switch back to edge mode to reset and continue
+                                } else { // User cancelled the prompt
+                                    showMessage('Edge creation cancelled. Start node selection cleared.', 'info');
+                                    edgeStartNode = null; // Clear start node if prompt is cancelled
+                                }
+                            } else { // User clicked on the SAME node that was already selected as edgeStartNode
+                                showMessage('Start node selection cleared. Click a node to select a new start node.', 'info', 2000);
+                                edgeStartNode = null; // Clear the selection
                             }
-                            edgeStartNode = null; // Reset for next edge
+                        } else { // User clicked on EMPTY SPACE (and edgeStartNode was set)
+                            showMessage('Edge creation cancelled as empty space was clicked. Start node selection cleared.', 'info', 2500);
+                            edgeStartNode = null; // Clear the selection
                         }
                     }
                 }
@@ -502,6 +518,16 @@
             });
 
             // --- Toolbar and Button Logic ---
+            function updateDeleteButton() {
+                if (selectedNode || selectedEdge) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.classList.remove('disabled:bg-red-300', 'disabled:cursor-not-allowed');
+                } else {
+                    deleteBtn.disabled = true;
+                    deleteBtn.classList.add('disabled:bg-red-300', 'disabled:cursor-not-allowed');
+                }
+            }
+
             function setMode(mode) {
                 currentMode = mode;
                 Object.values(toolButtons).forEach(btn => btn.classList.remove('active'));
@@ -531,18 +557,25 @@
             toolButtons.junction.addEventListener('click', () => setMode('junction'));
             toolButtons.edge.addEventListener('click', () => setMode('edge'));
 
-            deleteBtn.addEventListener('click', () => {
+            function deleteSelectedElement() {
                 if (selectedNode) {
                     // Delete node and connected edges
                     edges = edges.filter(edge => edge.startNodeId !== selectedNode.id && edge.endNodeId !== selectedNode.id);
                     nodes = nodes.filter(node => node.id !== selectedNode.id);
                     selectedNode = null;
+                    showMessage('Node deleted.', 'success', 1500);
                 } else if (selectedEdge) {
                     edges = edges.filter(edge => edge.id !== selectedEdge.id);
                     selectedEdge = null;
+                    showMessage('Edge deleted.', 'success', 1500);
+                } else {
+                    showMessage('Nothing selected to delete.', 'info', 1500);
+                    return; // Nothing to do if nothing is selected
                 }
                 draw();
-            });
+            }
+
+            deleteBtn.addEventListener('click', deleteSelectedElement);
             
             clearBtn.addEventListener('click', () => {
                 if (confirm('Are you sure you want to clear the entire canvas?')) {
@@ -648,13 +681,23 @@
             });
 
             // --- Initialization ---
-            function initialize() {
-                resizeCanvas();
-                setMode('select');
-                showMessage('Welcome! Select a tool to start building.', 'success');
-            }
+            setMode('select'); // Default to select mode
+            resizeCanvas();
 
-            initialize();
+            // --- Keyboard Shortcuts ---
+            document.addEventListener('keydown', (e) => {
+                // Check if the event target is an input field, textarea, or contenteditable element
+                const targetTagName = e.target.tagName.toLowerCase();
+                if (targetTagName === 'input' || targetTagName === 'textarea' || e.target.isContentEditable) {
+                    return; // Don't interfere with text input
+                }
+
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.preventDefault(); // Prevent default browser behavior (e.g., navigating back)
+                    console.log('Delete key pressed');
+                    deleteSelectedElement();
+                }
+            });
         });
     </script>
 </body>
