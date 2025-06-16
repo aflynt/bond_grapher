@@ -1,6 +1,7 @@
 import pydot
 from enum import Enum
 import sympy as sym
+import json
 
 class FLOWSIDE(Enum):
     SRC =  1 
@@ -79,6 +80,45 @@ class SymbolManager:
         if name not in self.symbols:
             self.symbols[name] = sym.Symbol(name, real=True)
         return self.symbols[name]
+
+def load_json_graph(fname) -> tuple[list[str], list[FlyEdge]]:
+
+    with open(fname, 'r') as f:
+        data = json.load(f)
+    nodes = data.get("nodes", [])
+    edges = data.get("edges", [])
+
+    ns = []
+    for node in nodes:
+        label = node.get("label", "")
+        ns.append(label)
+
+    ns = list(set(ns))  # Remove duplicates
+
+    # create edge list
+    es = []
+
+    for edge in edges:
+        num = int(edge.get("label", 0))
+        start_node_id = 0
+        end_node_id = 0
+
+        start_node_id = edge["startNodeId"] if "startNodeId" in edge else 0
+        end_node_id = edge["endNodeId"] if "endNodeId" in edge else 0
+
+        start_node_name = "IDK"
+        for node in nodes:
+            if node.get("id", 0) == start_node_id:
+                start_node_name = node.get("label", "")
+
+        end_node_name = "IDK"
+        for node in nodes:
+            if node.get("id", 0) == end_node_id:
+                end_node_name = node.get("label", "")
+
+        es.append(FlyEdge(label_num=num, src=start_node_name, dest=end_node_name, pwr_to_dest=1, flow_side=FLOWSIDE.IDK))
+
+    return ns, es
 
 def append_unique_symbol(sym_list: list[sym.Symbol], new_sym: sym.Symbol) -> list[sym.Symbol]:
     """
