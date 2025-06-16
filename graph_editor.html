@@ -205,6 +205,15 @@
             let isLassoSelecting = false;
             let lassoStartPoint = { x: 0, y: 0 };
             let lassoEndPoint = { x: 0, y: 0 };
+
+            // Zoom and Pan state
+            let scale = 1;
+            let panOffset = { x: 0, y: 0 };
+            let isPanning = false;
+            let lastMousePos = { x: 0, y: 0 };
+            const ZOOM_SENSITIVITY = 0.001;
+            const MIN_SCALE = 0.1;
+            const MAX_SCALE = 5;
             
             // --- Constants ---
             const NODE_RADIUS = 10;
@@ -221,6 +230,8 @@
                 const parent = canvas.parentElement;
                 canvas.width = parent.clientWidth;
                 canvas.height = parent.clientHeight;
+                // When resizing, we might want to reset pan/zoom or adjust it.
+                // For now, just redraw.
                 draw();
             }
             window.addEventListener('resize', resizeCanvas);
@@ -232,9 +243,10 @@
             }
             const getMousePos = (evt) => {
                 const rect = canvas.getBoundingClientRect();
+                // Adjust mouse position by panOffset and scale for accurate interaction with canvas elements
                 return {
-                    x: evt.clientX - rect.left,
-                    y: evt.clientY - rect.top,
+                    x: (evt.clientX - rect.left - panOffset.x) / scale,
+                    y: (evt.clientY - rect.top - panOffset.y) / scale,
                 };
             };
             
@@ -249,6 +261,10 @@
             // --- Drawing Functions ---
             function drawNode(node) {
                 ctx.save();
+                // Apply transformations for pan and zoom
+                // ctx.translate(panOffset.x, panOffset.y);
+                // ctx.scale(scale, scale);
+
                 // ctx.fillStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
                 // ctx.strokeStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
                 ctx.fillStyle = selectedNodes.has(node) ? SELECTION_COLOR : EDGE_COLOR;
@@ -362,12 +378,26 @@
 
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Save the default state
+                ctx.save();
+
+                // Apply pan and zoom transformations
+                ctx.translate(panOffset.x, panOffset.y);
+                ctx.scale(scale, scale);
+
                 edges.forEach(drawEdge);
                 nodes.forEach(drawNode);
 
                 if (isLassoSelecting) {
                     drawLassoRect();
                 }
+                
+                // Restore to default state (before pan/zoom) for UI elements like lasso rect if needed
+                // or draw lasso rect within the transformed space as well.
+                // For now, lasso rect is drawn in transformed space.
+
+                ctx.restore(); // Restore to the state before pan/zoom
 
                 updateDeleteButton(); // Call to update the delete button state
             }
@@ -437,7 +467,15 @@
 
 
             canvas.addEventListener('mousedown', (e) => {
-                const pos = getMousePos(e);
+                const pos = getMousePos(e); // Already transformed
+
+                if (e.button === 1 || (e.button === 0 && e.altKey)) { // Middle mouse button or Alt + Left Click for panning
+                    isPanning = true;
+                    lastMousePos = { x: e.clientX, y: e.clientY }; // Use clientX/Y for panning calculations
+                    canvas.style.cursor = 'grabbing';
+                    e.preventDefault();
+                    return;
+                }
 
                 if (currentMode === 'select') {
                     const clickedNode = getNodeAtPos(pos);
@@ -496,25 +534,44 @@
             });
 
             canvas.addEventListener('mousemove', (e) => {
-                const pos = getMousePos(e);
+                const currentTransformedPos = getMousePos(e); // Transformed position for interactions
+                const currentClientPos = { x: e.clientX, y: e.clientY }; // Client position for panning
+
+                if (isPanning) {
+                    const dx = currentClientPos.x - lastMousePos.x;
+                    const dy = currentClientPos.y - lastMousePos.y;
+                    panOffset.x += dx;
+                    panOffset.y += dy;
+                    lastMousePos = currentClientPos;
+                    draw();
+                    return;
+                }
+
+                // const pos = getMousePos(e); // Already got currentTransformedPos
                 if (currentMode === 'select') {
                     if (isDragging && selectedNodes.size > 0) {
                         selectedNodes.forEach(node => {
                             const offset = dragOffsets.get(node);
                             if (offset) {
-                                node.x = pos.x - offset.x;
-                                node.y = pos.y - offset.y;
+                                // Dragging should operate in the unscaled, unpanned coordinate system of the elements
+                                node.x = currentTransformedPos.x - offset.x;
+                                node.y = currentTransformedPos.y - offset.y;
                             }
                         });
                         draw();
                     } else if (isLassoSelecting) {
-                        lassoEndPoint = { ...pos };
+                        lassoEndPoint = { ...currentTransformedPos };
                         draw();
                     }
                 }
             });
 
             canvas.addEventListener('mouseup', (e) => {
+                if (isPanning) {
+                    isPanning = false;
+                    canvas.style.cursor = currentMode === 'select' ? 'default' : (currentMode === 'node' || currentMode === 'junction' ? 'crosshair' : 'pointer');
+                }
+
                 if (currentMode === 'select') {
                     if (isLassoSelecting) {
                         const lassoRect = {
@@ -574,6 +631,7 @@
             });
 
             canvas.addEventListener('click', (e) => {
+                if (e.altKey) return; // Prevent click actions if alt key was for panning
                 const pos = getMousePos(e);
 
                 if (currentMode === 'node' || currentMode === 'junction') {
@@ -629,6 +687,7 @@
             });
             
             canvas.addEventListener('dblclick', (e) => {
+                 if (e.altKey) return; // Prevent dblclick actions if alt key was for panning
                  const pos = getMousePos(e);
                  const node = getNodeAtPos(pos);
                  if(node) {
@@ -647,6 +706,29 @@
                          draw();
                      }
                  }
+            });
+
+            // --- Zoom Logic ---
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left; // Mouse position relative to canvas
+                const mouseY = e.clientY - rect.top;
+
+                // Calculate the world coordinates before zoom
+                const worldXBeforeZoom = (mouseX - panOffset.x) / scale;
+                const worldYBeforeZoom = (mouseY - panOffset.y) / scale;
+
+                // Update scale
+                const delta = e.deltaY * ZOOM_SENSITIVITY * -1; // Invert scroll direction for intuitive zoom
+                const newScale = scale + delta;
+                scale = Math.min(Math.max(newScale, MIN_SCALE), MAX_SCALE);
+
+                // Calculate the world coordinates after zoom and adjust panOffset to keep mouse position fixed
+                panOffset.x = mouseX - worldXBeforeZoom * scale;
+                panOffset.y = mouseY - worldYBeforeZoom * scale;
+                
+                draw();
             });
 
             // --- Toolbar and Button Logic ---
