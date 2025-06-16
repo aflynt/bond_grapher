@@ -195,6 +195,8 @@
             
             // --- Constants ---
             const NODE_RADIUS = 10;
+            const NODE_CONNECTION_OFFSET = 30; // Increased offset for edge connection to avoid label overlap
+            const JUNCTION_CONNECTION_OFFSET = 25; // Offset for edge connection on junctions
             const JUNCTION_WIDTH = 30;
             const JUNCTION_HEIGHT = 6;
             const SELECTION_COLOR = '#3b82f6'; // blue-500
@@ -300,23 +302,31 @@
                 const dx = targetNode.x - sourceNode.x;
                 const dy = targetNode.y - sourceNode.y;
                 const angle = Math.atan2(dy, dx);
+                const cosA = Math.cos(angle);
+                const sinA = Math.sin(angle);
                 
                 if (sourceNode.type === 'junction') {
-                     // Connect to the edge of the junction bar
-                    const cosA = Math.cos(angle);
-                    const sinA = Math.sin(angle);
-                    // Intersection with a rectangle centered at origin
                     const w = JUNCTION_WIDTH / 2;
                     const h = JUNCTION_HEIGHT / 2;
-                    if (w * Math.abs(sinA) > h * Math.abs(cosA)) {
-                        // Intersects top/bottom
-                        return { x: sourceNode.x + h * cosA / Math.abs(sinA) * Math.sign(sinA), y: sourceNode.y + h * Math.sign(sinA) };
-                    } else {
-                        // Intersects left/right
-                        return { x: sourceNode.x + w * Math.sign(cosA), y: sourceNode.y + w * sinA / Math.abs(cosA) * Math.sign(cosA) };
+                    let intersectX, intersectY;
+
+                    // Calculate intersection with junction rectangle boundary
+                    if (w * Math.abs(sinA) > h * Math.abs(cosA)) { // Intersects top/bottom edge
+                        intersectX = sourceNode.x + h * cosA / Math.abs(sinA) * Math.sign(sinA);
+                        intersectY = sourceNode.y + h * Math.sign(sinA);
+                    } else { // Intersects left/right edge
+                        intersectX = sourceNode.x + w * Math.sign(cosA);
+                        intersectY = sourceNode.y + w * sinA / Math.abs(cosA) * Math.sign(cosA);
                     }
+                    
+                    // Apply the offset to push the connection point further out
+                    return {
+                        x: intersectX + JUNCTION_CONNECTION_OFFSET * cosA,
+                        y: intersectY + JUNCTION_CONNECTION_OFFSET * sinA
+                    };
                 } else { // 'node' type
-                    return { x: sourceNode.x + NODE_RADIUS * Math.cos(angle), y: sourceNode.y + NODE_RADIUS * Math.sin(angle) };
+                    // Use NODE_CONNECTION_OFFSET to provide more clearance for labels
+                    return { x: sourceNode.x + NODE_CONNECTION_OFFSET * cosA, y: sourceNode.y + NODE_CONNECTION_OFFSET * sinA };
                 }
             }
 
