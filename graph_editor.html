@@ -185,13 +185,21 @@
             let nodes = [];
             let edges = [];
             let currentMode = 'select'; // 'select', 'node', 'junction', 'edge'
-            let selectedNode = null;
-            let selectedEdge = null;
+            // let selectedNode = null; // Replaced by selectedNodes
+            // let selectedEdge = null; // Replaced by selectedEdges
+            let selectedNodes = new Set();
+            let selectedEdges = new Set();
             let isDragging = false;
             let dragStart = { x: 0, y: 0 };
+            let dragOffsets = new Map(); // To store offsets for multiple nodes during drag
             let edgeStartNode = null; // For creating new edges
             let nextId = 0;
             let highestId = 0; // Keep track of the highest ID used
+            
+            // Lasso selection state
+            let isLassoSelecting = false;
+            let lassoStartPoint = { x: 0, y: 0 };
+            let lassoEndPoint = { x: 0, y: 0 };
             
             // --- Constants ---
             const NODE_RADIUS = 10;
@@ -236,8 +244,10 @@
             // --- Drawing Functions ---
             function drawNode(node) {
                 ctx.save();
-                ctx.fillStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
-                ctx.strokeStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
+                // ctx.fillStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
+                // ctx.strokeStyle = (selectedNode === node) ? SELECTION_COLOR : EDGE_COLOR;
+                ctx.fillStyle = selectedNodes.has(node) ? SELECTION_COLOR : EDGE_COLOR;
+                ctx.strokeStyle = selectedNodes.has(node) ? SELECTION_COLOR : EDGE_COLOR;
                 ctx.lineWidth = 2;
                 ctx.font = FONT_STYLE;
                 ctx.textAlign = 'center';
@@ -262,8 +272,10 @@
                 if (!startNode || !endNode) return;
 
                 ctx.save();
-                ctx.strokeStyle = (selectedEdge === edge) ? SELECTION_COLOR : EDGE_COLOR;
-                ctx.lineWidth = (selectedEdge === edge) ? 2.5 : 1.5;
+                // ctx.strokeStyle = (selectedEdge === edge) ? SELECTION_COLOR : EDGE_COLOR;
+                // ctx.lineWidth = (selectedEdge === edge) ? 2.5 : 1.5;
+                ctx.strokeStyle = selectedEdges.has(edge) ? SELECTION_COLOR : EDGE_COLOR;
+                ctx.lineWidth = selectedEdges.has(edge) ? 2.5 : 1.5;
 
                 const startPoint = getEdgePoint(startNode, endNode);
                 const endPoint = getEdgePoint(endNode, startNode);
@@ -278,7 +290,8 @@
                 drawArrowhead(ctx, startPoint, endPoint);
 
                 // Draw label
-                ctx.fillStyle = (selectedEdge === edge) ? SELECTION_COLOR : EDGE_COLOR;
+                // ctx.fillStyle = (selectedEdge === edge) ? SELECTION_COLOR : EDGE_COLOR;
+                ctx.fillStyle = selectedEdges.has(edge) ? SELECTION_COLOR : EDGE_COLOR;
                 ctx.font = FONT_STYLE;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
@@ -346,7 +359,21 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 edges.forEach(drawEdge);
                 nodes.forEach(drawNode);
+
+                if (isLassoSelecting) {
+                    drawLassoRect();
+                }
+
                 updateDeleteButton(); // Call to update the delete button state
+            }
+
+            function drawLassoRect() {
+                ctx.save();
+                ctx.strokeStyle = SELECTION_COLOR;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]); // Dashed line for lasso
+                ctx.strokeRect(lassoStartPoint.x, lassoStartPoint.y, lassoEndPoint.x - lassoStartPoint.x, lassoEndPoint.y - lassoStartPoint.y);
+                ctx.restore();
             }
 
             // --- Interaction Logic ---
@@ -408,21 +435,56 @@
                 const pos = getMousePos(e);
 
                 if (currentMode === 'select') {
-                    const node = getNodeAtPos(pos);
-                    if (node) {
-                        selectedNode = node;
-                        selectedEdge = null;
-                        isDragging = true;
-                        dragStart.x = pos.x - node.x;
-                        dragStart.y = pos.y - node.y;
-                    } else {
-                        const edge = getEdgeAtPos(pos);
-                        selectedEdge = edge;
-                        selectedNode = null;
-                    }
-                    if(!node && !getEdgeAtPos(pos)) {
-                        selectedNode = null;
-                        selectedEdge = null;
+                    const clickedNode = getNodeAtPos(pos);
+                    const clickedEdge = getEdgeAtPos(pos);
+
+                    if (e.shiftKey) { // Handle shift + click for toggling selection
+                        if (clickedNode) {
+                            if (selectedNodes.has(clickedNode)) {
+                                selectedNodes.delete(clickedNode);
+                            } else {
+                                selectedNodes.add(clickedNode);
+                            }
+                            selectedEdges.clear(); // Clear edge selection when a node is shift-clicked
+                        } else if (clickedEdge) {
+                            if (selectedEdges.has(clickedEdge)) {
+                                selectedEdges.delete(clickedEdge);
+                            } else {
+                                selectedEdges.add(clickedEdge);
+                            }
+                            selectedNodes.clear(); // Clear node selection when an edge is shift-clicked
+                        } else {
+                            // Shift-click on empty space: start lasso to add to selection (handled in mouseup)
+                            isLassoSelecting = true;
+                            lassoStartPoint = { ...pos };
+                            lassoEndPoint = { ...pos };
+                        }
+                    } else { // Normal click (no shift)
+                        if (clickedNode) {
+                            if (!selectedNodes.has(clickedNode)) {
+                                selectedNodes.clear();
+                                selectedNodes.add(clickedNode);
+                                selectedEdges.clear();
+                            }
+                            isDragging = true;
+                            dragStart = { ...pos };
+                            dragOffsets.clear();
+                            selectedNodes.forEach(node => {
+                                dragOffsets.set(node, { x: pos.x - node.x, y: pos.y - node.y });
+                            });
+                        } else if (clickedEdge) {
+                            selectedEdges.clear();
+                            selectedEdges.add(clickedEdge);
+                            selectedNodes.clear();
+                            isDragging = false; // Don't drag edges
+                        } else {
+                            // Click on empty space: start lasso to replace selection
+                            selectedNodes.clear();
+                            selectedEdges.clear();
+                            isLassoSelecting = true;
+                            lassoStartPoint = { ...pos };
+                            lassoEndPoint = { ...pos };
+                        }
                     }
                 }
                 draw();
@@ -430,15 +492,80 @@
 
             canvas.addEventListener('mousemove', (e) => {
                 const pos = getMousePos(e);
-                if (currentMode === 'select' && isDragging && selectedNode) {
-                    selectedNode.x = pos.x - dragStart.x;
-                    selectedNode.y = pos.y - dragStart.y;
-                    draw();
+                if (currentMode === 'select') {
+                    if (isDragging && selectedNodes.size > 0) {
+                        selectedNodes.forEach(node => {
+                            const offset = dragOffsets.get(node);
+                            if (offset) {
+                                node.x = pos.x - offset.x;
+                                node.y = pos.y - offset.y;
+                            }
+                        });
+                        draw();
+                    } else if (isLassoSelecting) {
+                        lassoEndPoint = { ...pos };
+                        draw();
+                    }
                 }
             });
 
             canvas.addEventListener('mouseup', (e) => {
+                if (currentMode === 'select') {
+                    if (isLassoSelecting) {
+                        const lassoRect = {
+                            x: Math.min(lassoStartPoint.x, lassoEndPoint.x),
+                            y: Math.min(lassoStartPoint.y, lassoEndPoint.y),
+                            width: Math.abs(lassoStartPoint.x - lassoEndPoint.x),
+                            height: Math.abs(lassoStartPoint.y - lassoEndPoint.y)
+                        };
+
+                        const shiftPressedDuringLasso = e.shiftKey; // Check if shift was held on mouseup
+
+                        if (!shiftPressedDuringLasso) {
+                            selectedNodes.clear();
+                            selectedEdges.clear();
+                        }
+
+                        nodes.forEach(node => {
+                            if (node.x >= lassoRect.x && node.x <= lassoRect.x + lassoRect.width &&
+                                node.y >= lassoRect.y && node.y <= lassoRect.y + lassoRect.height) {
+                                if (shiftPressedDuringLasso && selectedNodes.has(node)) {
+                                    // selectedNodes.delete(node); // Or do nothing if adding
+                                } else {
+                                    selectedNodes.add(node);
+                                }
+                            }
+                        });
+
+                        edges.forEach(edge => {
+                            const startNode = nodes.find(n => n.id === edge.startNodeId);
+                            const endNode = nodes.find(n => n.id === edge.endNodeId);
+                            if (startNode && endNode) {
+                                // Consider edge selected if both its nodes are within the lasso, or if the edge itself intersects
+                                // For simplicity, let's start with: if both nodes are selected by the lasso, select the edge.
+                                // A more robust check would be line-rectangle intersection.
+                                const p1 = getEdgePoint(startNode, endNode);
+                                const p2 = getEdgePoint(endNode, startNode);
+                                const midX = (p1.x + p2.x) / 2;
+                                const midY = (p1.y + p2.y) / 2;
+
+                                if ((selectedNodes.has(startNode) && selectedNodes.has(endNode)) || 
+                                    (midX >= lassoRect.x && midX <= lassoRect.x + lassoRect.width &&
+                                     midY >= lassoRect.y && midY <= lassoRect.y + lassoRect.height)) {
+                                    if (shiftPressedDuringLasso && selectedEdges.has(edge)) {
+                                       // selectedEdges.delete(edge); // Or do nothing if adding
+                                    } else {
+                                        selectedEdges.add(edge);
+                                    }
+                                }
+                            }
+                        });
+                        isLassoSelecting = false;
+                        draw();
+                    }
+                }
                 isDragging = false;
+                dragOffsets.clear();
             });
 
             canvas.addEventListener('click', (e) => {
@@ -519,7 +646,8 @@
 
             // --- Toolbar and Button Logic ---
             function updateDeleteButton() {
-                if (selectedNode || selectedEdge) {
+                // if (selectedNode || selectedEdge) {
+                if (selectedNodes.size > 0 || selectedEdges.size > 0) {
                     deleteBtn.disabled = false;
                     deleteBtn.classList.remove('disabled:bg-red-300', 'disabled:cursor-not-allowed');
                 } else {
@@ -537,6 +665,12 @@
                 
                 // Reset states when changing mode
                 edgeStartNode = null;
+                isLassoSelecting = false; // Ensure lasso is reset if mode changes mid-lasso
+                // Clear selections when changing out of select mode, unless desired otherwise
+                // if (mode !== 'select') {
+                //     selectedNodes.clear();
+                //     selectedEdges.clear();
+                // }
                 
                 // Update cursor style
                 if (mode === 'node' || mode === 'junction') {
@@ -558,19 +692,30 @@
             toolButtons.edge.addEventListener('click', () => setMode('edge'));
 
             function deleteSelectedElement() {
-                if (selectedNode) {
-                    // Delete node and connected edges
-                    edges = edges.filter(edge => edge.startNodeId !== selectedNode.id && edge.endNodeId !== selectedNode.id);
-                    nodes = nodes.filter(node => node.id !== selectedNode.id);
-                    selectedNode = null;
-                    showMessage('Node deleted.', 'success', 1500);
-                } else if (selectedEdge) {
-                    edges = edges.filter(edge => edge.id !== selectedEdge.id);
-                    selectedEdge = null;
-                    showMessage('Edge deleted.', 'success', 1500);
+                let deletedSomething = false;
+                if (selectedNodes.size > 0) {
+                    const nodesToDeleteIds = new Set();
+                    selectedNodes.forEach(node => nodesToDeleteIds.add(node.id));
+
+                    nodes = nodes.filter(node => !nodesToDeleteIds.has(node.id));
+                    edges = edges.filter(edge => !nodesToDeleteIds.has(edge.startNodeId) && !nodesToDeleteIds.has(edge.endNodeId));
+                    
+                    selectedNodes.clear();
+                    deletedSomething = true;
+                }
+
+                if (selectedEdges.size > 0) {
+                    const edgesToDeleteIds = new Set();
+                    selectedEdges.forEach(edge => edgesToDeleteIds.add(edge.id));
+                    edges = edges.filter(edge => !edgesToDeleteIds.has(edge.id));
+                    selectedEdges.clear();
+                    deletedSomething = true;
+                }
+
+                if (deletedSomething) {
+                    showMessage('Selected elements deleted.', 'success', 1500);
                 } else {
                     showMessage('Nothing selected to delete.', 'info', 1500);
-                    return; // Nothing to do if nothing is selected
                 }
                 draw();
             }
@@ -581,8 +726,10 @@
                 if (confirm('Are you sure you want to clear the entire canvas?')) {
                     nodes = [];
                     edges = [];
-                    selectedNode = null;
-                    selectedEdge = null;
+                    // selectedNode = null;
+                    // selectedEdge = null;
+                    selectedNodes.clear();
+                    selectedEdges.clear();
                     edgeStartNode = null;
                     nextId = 0;
                     draw();
@@ -665,6 +812,9 @@
                                 highestId = graphData.nodes.reduce((max, node) => Math.max(max, node.id), 0);
                                 highestId = graphData.edges.reduce((max, edge) => Math.max(max, edge.id), highestId);
                                 highestId = Math.max(highestId, graphData.nextId -1); // Ensure highestId is consistent
+
+                                selectedNodes.clear(); // Clear selection after loading
+                                selectedEdges.clear();
 
                                 draw();
                                 showMessage('Graph loaded successfully!', 'success');
