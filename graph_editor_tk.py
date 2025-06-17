@@ -45,6 +45,10 @@ class GraphEditorApp:
         # Colors
         self.SELECTION_COLOR = '#3b82f6'  # blue-500
         self.DEFAULT_COLOR = 'black'
+        self.ACTIVE_BTN_BG = '#3b82f6'    # blue-500
+        self.ACTIVE_BTN_FG = 'white'      # white text
+        self.INACTIVE_BTN_BG = '#f5f5f5'  # gray-100
+        self.INACTIVE_BTN_FG = 'black'    # black text
 
         # Setup UI
         self.create_toolbar()
@@ -54,8 +58,7 @@ class GraphEditorApp:
     def create_toolbar(self):
         toolbar = tk.Frame(self.main_container)  # Changed from self.root to self.main_container
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
-        
-        # Tool buttons
+          # Tool buttons
         self.tool_buttons = []
         for text, cmd in [
             ("Select", self.set_select),
@@ -63,9 +66,13 @@ class GraphEditorApp:
             ("Add Junction", self.set_junction),
             ("Add Edge", self.set_edge)
         ]:
-            btn = tk.Button(toolbar, text=text, width=12, command=cmd)
+            btn = tk.Button(toolbar, text=text, width=12, command=cmd,
+                          bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
             btn.pack(pady=2)
             self.tool_buttons.append(btn)
+        
+        # Set initial button state for 'select' mode
+        self.tool_buttons[0].config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
 
         # Action buttons
         tk.Button(toolbar, text="Save Graph", width=12, command=self.save_graph).pack(pady=2)
@@ -106,18 +113,22 @@ class GraphEditorApp:
     def set_select(self):
         self.current_mode = 'select'
         self.update_status()
+        self.update_button_colors()
 
     def set_node(self):
         self.current_mode = 'node'
         self.update_status()
+        self.update_button_colors()
 
     def set_junction(self):
         self.current_mode = 'junction'
         self.update_status()
+        self.update_button_colors()
 
     def set_edge(self):
         self.current_mode = 'edge'
         self.update_status()
+        self.update_button_colors()
 
     def update_status(self):
         """Update the status bar text based on current state."""
@@ -141,6 +152,7 @@ class GraphEditorApp:
             status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
 
         self.status_bar.config(text=status_text)
+        self.update_button_colors()  # Update button colors on mode change
 
     def update_status_temp(self, message, duration=3000):
         """Update status bar with a message that disappears after duration (ms)"""
@@ -528,6 +540,17 @@ class GraphEditorApp:
             self.update_status()
             self.draw()
             self.update_status_temp("Canvas cleared")
+
+    def update_button_colors(self):
+        """Update the tool buttons' colors based on the current mode"""
+        mode_to_index = {'select': 0, 'node': 1, 'junction': 2, 'edge': 3}
+        current_index = mode_to_index.get(self.current_mode, -1)
+        
+        for i, btn in enumerate(self.tool_buttons):
+            if i == current_index:
+                btn.config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
+            else:
+                btn.config(bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
 
 if __name__ == '__main__':
     root = tk.Tk()
