@@ -206,7 +206,8 @@ class GraphEditorApp:
                 self.edge_start_node = node
                 self.update_status_temp(f"Selected start node: {node['label']}. Click end node.")
             elif self.edge_start_node and node and node != self.edge_start_node:
-                label = simpledialog.askstring("Edge Label", "Enter label for new edge:")
+                next_number = self.get_next_edge_number()
+                label = simpledialog.askstring("Edge Label", "Enter label for new edge:", initialvalue=next_number)
                 if label:
                     self.edges.append({
                         'id': self.next_id,
@@ -663,6 +664,23 @@ class GraphEditorApp:
         if self.selected_nodes or self.selected_edges:
             self.delete_selected()
             return 'break'  # Prevent the event from propagating
+
+    def get_next_edge_number(self):
+        """Find the next available integer value for edge labels"""
+        # Get all edge labels that are integers
+        used_numbers = set()
+        for edge in self.edges:
+            try:
+                num = int(edge['label'])
+                used_numbers.add(num)
+            except ValueError:
+                continue
+        
+        # Find the first unused integer starting from 1
+        next_num = 1
+        while next_num in used_numbers:
+            next_num += 1
+        return str(next_num)
 
 if __name__ == '__main__':
     root = tk.Tk()
