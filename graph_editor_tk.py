@@ -30,10 +30,9 @@ class GraphEditorApp:
         self.nodes = []  # list of dicts: {id, x, y, label, type}
         self.edges = []  # list of dicts: {id, startNodeId, endNodeId, label}
         self.next_id = 1
-        self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'
-        self.edge_start_node = None
-        self.selected_node = None  # Currently selected node
-        self.selected_edge = None  # Currently selected edge
+        self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'        self.edge_start_node = None
+        self.selected_nodes = set()  # Set of selected node IDs
+        self.selected_edges = set()  # Set of selected edge IDs
         self.scale = 1.0
         self.pan_x = 0
         self.pan_y = 0
@@ -139,14 +138,20 @@ class GraphEditorApp:
             'edge': "Edge Mode: Click two nodes to create an edge between them."
         }
 
-        status_text = mode_info.get(self.current_mode, "Ready")
-
-        # Add selection information if in select mode
+        status_text = mode_info.get(self.current_mode, "Ready")        # Add selection information if in select mode
         if self.current_mode == 'select':
-            if self.selected_node:
-                status_text += f" | Selected Node: {self.selected_node['label']}"
-            elif self.selected_edge:
-                status_text += f" | Selected Edge: {self.selected_edge['label']}"
+            if self.selected_nodes:
+                selected_nodes = [node for node in self.nodes if node['id'] in self.selected_nodes]
+                if len(selected_nodes) == 1:
+                    status_text += f" | Selected Node: {selected_nodes[0]['label']}"
+                else:
+                    status_text += f" | Selected {len(selected_nodes)} Nodes"
+            if self.selected_edges:
+                selected_edges = [edge for edge in self.edges if edge['id'] in self.selected_edges]
+                if len(selected_edges) == 1:
+                    status_text += f" | Selected Edge: {selected_edges[0]['label']}"
+                else:
+                    status_text += f" | Selected {len(selected_edges)} Edges"
         # Add edge creation progress if in edge mode
         elif self.current_mode == 'edge' and self.edge_start_node:
             status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
@@ -157,11 +162,12 @@ class GraphEditorApp:
     def update_status_temp(self, message, duration=3000):
         """Update status bar with a message that disappears after duration (ms)"""
         self.status_bar.config(text=message)
-        # Schedule reset of status bar
-        self.root.after(duration, lambda: self.status_bar.config(text="Ready"))
+        # Schedule reset of status bar        self.root.after(duration, lambda: self.status_bar.config(text="Ready"))
 
     def on_mouse_down(self, event):
         x, y = self.screen_to_world(event.x, event.y)
+        # Check if Ctrl key is pressed for multi-select
+        is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
         if self.current_mode == 'node':
             label = simpledialog.askstring("Node Label", "Enter label for new node:")
             if label:
@@ -205,24 +211,44 @@ class GraphEditorApp:
                     self.draw()
                 self.edge_start_node = None
         else:  # 'select' mode
+            # Check if Ctrl key is pressed for multi-select
+            is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
             node = self.get_node_at(x, y)
             edge = self.get_edge_at(x, y)
             
             if node:
-                self.selected_node = node
-                self.selected_edge = None
-                self.dragging_node = node
-                self.drag_start_offset = (x - node['x'], y - node['y'])
+                if is_multi_select:
+                    # Toggle node selection
+                    if node['id'] in self.selected_nodes:
+                        self.selected_nodes.remove(node['id'])
+                    else:
+                        self.selected_nodes.add(node['id'])
+                else:
+                    # Single select, clear previous selections
+                    self.selected_nodes = {node['id']}
+                    self.selected_edges.clear()
+                    self.dragging_node = node
+                    self.drag_start_offset = (x - node['x'], y - node['y'])
             elif edge:
-                self.selected_edge = edge
-                self.selected_node = None
-                self.dragging_node = None
-            else:
-                self.selected_node = None
-                self.selected_edge = None
+                if is_multi_select:
+                    # Toggle edge selection
+                    if edge['id'] in self.selected_edges:
+                        self.selected_edges.remove(edge['id'])
+                    else:
+                        self.selected_edges.add(edge['id'])
+                else:
+                    # Single select, clear previous selections
+                    self.selected_edges = {edge['id']}
+                    self.selected_nodes.clear()
+                    self.dragging_node = None
+            elif not is_multi_select:
+                # Click on empty space without Ctrl - clear all selections
+                self.selected_nodes.clear()
+                self.selected_edges.clear()
                 self.dragging_node = None
             
             self.update_delete_button_state()
+            self.update_status()
             self.draw()
 
     def on_mouse_move(self, event):
@@ -400,15 +426,15 @@ class GraphEditorApp:
             # Convert to screen coordinates
             x1, y1 = self.world_to_screen(start_point['x'], start_point['y'])
             x2, y2 = self.world_to_screen(end_point['x'], end_point['y'])
-            
-            # Set edge color based on selection
-            edge_color = self.SELECTION_COLOR if edge == self.selected_edge else self.DEFAULT_COLOR
+              # Set edge color based on selection
+            is_selected = edge['id'] in self.selected_edges
+            edge_color = self.SELECTION_COLOR if is_selected else self.DEFAULT_COLOR
             
             # Draw the edge line
             self.canvas.create_line(
                 x1, y1, x2, y2,
                 fill=edge_color,
-                width=2 if edge == self.selected_edge else 1,
+                width=2 if is_selected else 1,
                 tags=("edge", f"edge_{edge['id']}")
             )
             
@@ -427,9 +453,9 @@ class GraphEditorApp:
         
         # draw nodes
         for node in self.nodes:
-            x, y = self.world_to_screen(node['x'], node['y'])
-            # Set node color based on selection
-            node_color = self.SELECTION_COLOR if node == self.selected_node else self.DEFAULT_COLOR
+            x, y = self.world_to_screen(node['x'], node['y'])            # Set node color based on selection
+            is_selected = node['id'] in self.selected_nodes
+            node_color = self.SELECTION_COLOR if is_selected else self.DEFAULT_COLOR
             
             if node['type']=='junction':
                 self.canvas.create_rectangle(x-15, y-3, x+15, y+3, 
@@ -494,27 +520,39 @@ class GraphEditorApp:
             ImageGrab.grab().crop((x, y, x1, y1)).save(path)
 
     def delete_selected(self):
-        if self.selected_node:
-            # Remove any edges connected to this node
+        total_nodes_deleted = 0
+        total_edges_deleted = 0
+        
+        # Delete selected nodes and their connected edges
+        if self.selected_nodes:
             original_edge_count = len(self.edges)
+            # Remove any edges connected to any selected node
             self.edges = [edge for edge in self.edges 
-                         if edge['startNodeId'] != self.selected_node['id'] 
-                         and edge['endNodeId'] != self.selected_node['id']]
-            edges_removed = original_edge_count - len(self.edges)
-            # Remove the node
-            self.nodes = [node for node in self.nodes if node['id'] != self.selected_node['id']]
-            self.selected_node = None
+                         if edge['startNodeId'] not in self.selected_nodes 
+                         and edge['endNodeId'] not in self.selected_nodes]
+            total_edges_deleted = original_edge_count - len(self.edges)
+            
+            # Remove the selected nodes
+            original_node_count = len(self.nodes)
+            self.nodes = [node for node in self.nodes if node['id'] not in self.selected_nodes]
+            total_nodes_deleted = original_node_count - len(self.nodes)
+            self.selected_nodes.clear()
             self.dragging_node = None
-            if edges_removed > 0:
-                self.update_status_temp(f"Node and {edges_removed} connected edge(s) deleted")
-            else:
-                self.update_status_temp("Node deleted")
-                
-        elif self.selected_edge:
-            # Remove just the edge
-            self.edges = [edge for edge in self.edges if edge['id'] != self.selected_edge['id']]
-            self.selected_edge = None
-            self.update_status_temp("Edge deleted")
+            
+        # Delete selected edges
+        if self.selected_edges:
+            original_edge_count = len(self.edges)
+            self.edges = [edge for edge in self.edges if edge['id'] not in self.selected_edges]
+            total_edges_deleted += original_edge_count - len(self.edges)
+            self.selected_edges.clear()
+            
+        # Update status message
+        if total_nodes_deleted and total_edges_deleted:
+            self.update_status_temp(f"Deleted {total_nodes_deleted} node(s) and {total_edges_deleted} edge(s)")
+        elif total_nodes_deleted:
+            self.update_status_temp(f"Deleted {total_nodes_deleted} node(s)")
+        elif total_edges_deleted:
+            self.update_status_temp(f"Deleted {total_edges_deleted} edge(s)")
             
         self.update_delete_button_state()
         self.update_status()
@@ -522,7 +560,7 @@ class GraphEditorApp:
 
     def update_delete_button_state(self):
         # Enable/disable delete button based on selection
-        if self.selected_node or self.selected_edge:
+        if self.selected_nodes or self.selected_edges:
             self.delete_btn.config(state=tk.NORMAL)
         else:
             self.delete_btn.config(state=tk.DISABLED)
