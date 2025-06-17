@@ -36,15 +36,20 @@ h = 0.25 # bump height (m)
 d = 1.00 # bump diameter (m)
 
 # forward velocity
-U = 2.0 * 0.44704  # convert mph to m/s
-# U = 30.0 * 0.44704  # convert mph to m/s
+# U = 2.0 * 0.44704  # convert mph to m/s
+U = 30.0 * 0.44704  # convert mph to m/s
 
 # INITIAL CONDITIONS
-q_09  = m_s * g / k_s1  # initial sprung mass position
-q_02  = (m_s + m_us) * g / k_t # initial unsprung mass position
-q_s0 = 1.3 * q_09  # breakpoint for suspension spring position
-p_05  = 1.0e-6
+q_09_ini  = m_s * g / k_s1  # initial sprung mass position
+q_02_ini  = (m_s + m_us) * g / k_t # initial unsprung mass position
+q_s0 = 1.3 * q_09_ini  # breakpoint for suspension spring position
+
+# initial momenta
+p_05  = 0.0
 p_12  = 0.0
+# initial positions
+q_09 = q_09_ini
+q_02 = q_02_ini
 
 def v_i_profile(t):
     """Input bump velocity profile as a function of time."""
@@ -95,31 +100,44 @@ def ode_system(t, y):
     # Define the system of ODEs
 
     # get tire spring force
-    # Ft = F_t(q_02)
-    # k_tire = Ft/q_02 if q_02 != 0 else k_t
-    # C_02 = 1/(k_tire + 1e-6) # add small number to avoid division by zero
-    C_02 = 1/k_t
+    e_02 = F_t(q_02)
 
     # get suspension spring force
-    Fs = F_s(q_09)
-    k_susp = Fs/q_09 if q_09 != 0 else k_s1
-    C_09 = 1/(k_susp + 1e-6) # add small number to avoid division by zero
+    e_09 = F_s(q_09)
 
     # get damper force
     f_08 =  p_05/I_05 - p_12/I_12
     e_08 = F_d(f_08)
-    R_08 = e_08 / f_08 if f_08 != 0 else 0 # IDK what to do if f_08 = 0
 
     # get input bump velocity
     v_i = v_i_profile(t)
     SF_01 = v_i
 
-    # Calculate derivatives
+    e_03 = e_02
+    e_04 = SE_04
+    e_07 = e_08 + e_09
+    e_06 = e_07
+    e_11 = SE_11
+    e_10 = e_07
+    e_12 = e_10 - e_11
+    e_05 = e_03 - e_04 - e_06
 
-    pdot_05 = (-C_02*C_09*I_05*I_12*SE_04 + C_02*C_09*I_05*R_08*p_12 - C_02*C_09*I_12*R_08*p_05 - C_02*I_05*I_12*q_09 + C_09*I_05*I_12*q_02)/(C_02*C_09*I_05*I_12)
-    pdot_12 = (-C_09*I_05*I_12*SE_11 - C_09*I_05*R_08*p_12 + C_09*I_12*R_08*p_05 + I_05*I_12*q_09)/(C_09*I_05*I_12)
-    qdot_02 = (I_05*SF_01 - p_05)/I_05
-    qdot_09 = (-I_05*p_12 + I_12*p_05)/(I_05*I_12)
+    f_01 = SF_01
+    f_05 = p_05/I_05
+    f_03 = f_05
+    f_02 = f_01 - f_03
+
+    f_06 = f_05
+    f_12 = p_12/I_12
+    f_10 = f_12
+    f_07 = f_06 - f_10
+    f_09 = f_07
+
+    # Calculate derivatives
+    pdot_05 = e_05
+    pdot_12 = e_12
+    qdot_02 = f_02
+    qdot_09 = f_09
 
     return [qdot_02, qdot_09, pdot_05, pdot_12]
 
@@ -157,7 +175,7 @@ plt.title("Suspension System Forces vs Time")
 plt.xlabel("Time (s)")
 plt.ylabel("Force (N)")
 plt.xlim(0, 2.0)
-plt.ylim(-2000, 8000)
+# plt.ylim(-2000, 8000)
 plt.grid()
 plt.legend()
 plt.show()
