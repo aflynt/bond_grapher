@@ -3,6 +3,8 @@ from tkinter import filedialog, simpledialog, messagebox
 import json
 from PIL import ImageGrab
 import math
+import lib_bonds as lb
+from lib_bonds import FLOWSIDE, FlyEdge
 
 class GraphEditorApp:
     def __init__(self, root):
@@ -216,7 +218,8 @@ class GraphEditorApp:
                         'id': self.next_id,
                         'startNodeId': self.edge_start_node['id'],
                         'endNodeId': node['id'],
-                        'label': label
+                        'label': label,
+                        'flow_side': FLOWSIDE.IDK.value
                     })
                     self.next_id += 1
                     self.draw()
@@ -470,6 +473,18 @@ class GraphEditorApp:
             fill=color, outline=color
         )
 
+    def draw_tee(self, x, y, angle, color, length=12):
+        """Draw a Tee (perpendicular line) at (x, y) with given angle and length."""
+        # Tee is perpendicular to the edge
+        perp_angle = angle + math.pi / 2
+        dx = (length / 2) * math.cos(perp_angle)
+        dy = (length / 2) * math.sin(perp_angle)
+        x1 = x - dx
+        y1 = y - dy
+        x2 = x + dx
+        y2 = y + dy
+        self.canvas.create_line(x1, y1, x2, y2, fill=color, width=3)
+
     def draw(self):
         self.canvas.delete('all')
         # draw edges
@@ -500,6 +515,14 @@ class GraphEditorApp:
             
             # Draw custom arrowhead
             self.draw_arrowhead(x1, y1, x2, y2, edge_color)
+
+            # Draw Tee at start if flow_side == SRC, at end if flow_side == DEST
+            flow_side = edge.get('flow_side', 0)
+            angle = math.atan2(y2 - y1, x2 - x1)
+            if flow_side == FLOWSIDE.SRC.value:
+                self.draw_tee(x1, y1, angle, edge_color)
+            elif flow_side == FLOWSIDE.DEST.value:
+                self.draw_tee(x2, y2, angle, edge_color)
             
             # Draw label at midpoint
             mx = (x1 + x2) / 2
@@ -561,7 +584,8 @@ class GraphEditorApp:
             with open(path) as f:
                 data = json.load(f)
                 self.nodes = data['nodes']
-                self.edges = data['edges']
+                # Ensure all edges have 'flow_side' set, default to 0 (IDK)
+                self.edges = [dict(edge, flow_side=edge.get('flow_side', FLOWSIDE.IDK.value)) for edge in data['edges']]
                 self.next_id = data.get('next_id', self.next_id)
                 self.draw()
 
@@ -572,12 +596,61 @@ class GraphEditorApp:
             'edges': self.edges,
             'next_id': self.next_id
         }
-        try:
-            with open('graph.json', 'w') as f:
-                json.dump(data, f, indent=2)
-            self.update_status_temp("Graph saved to graph.json")
-        except Exception as e:
-            self.update_status_temp(f"Error saving graph: {e}")
+
+        ns = []
+        for node in self.nodes:
+            label = node.get("label", "")
+            ns.append(label)
+
+        ns = list(set(ns))  # Remove duplicates
+
+        # create edge list
+        es = []
+
+        for edge in self.edges:
+            num = int(edge.get("label", 0))
+            start_node_id = 0
+            end_node_id = 0
+
+            start_node_id = edge["startNodeId"] if "startNodeId" in edge else 0
+            end_node_id = edge["endNodeId"] if "endNodeId" in edge else 0
+
+            start_node_name = "IDK"
+            for node in self.nodes:
+                if node.get("id", 0) == start_node_id:
+                    start_node_name = node.get("label", "")
+
+            end_node_name = "IDK"
+            for node in self.nodes:
+                if node.get("id", 0) == end_node_id:
+                    end_node_name = node.get("label", "")
+
+            es.append(FlyEdge(label_num=num, src=start_node_name, dest=end_node_name, pwr_to_dest=1, flow_side=FLOWSIDE.IDK))
+
+        lb.assign_causality_to_all_nodes(es)
+        lb.plot_graph(es, ns, f"graph.png")
+
+        
+        for e in es:
+            target_edge = next((edge for edge in self.edges if int(edge['label']) == e.num), None)
+            # print flow_side
+            # if e.flow_side == FLOWSIDE.SRC, set edges[num].flow_side = FLOWSIDE.SRC
+            if e.flow_side == FLOWSIDE.SRC and target_edge:
+                target_edge['flow_side'] = FLOWSIDE.SRC.value
+            elif e.flow_side == FLOWSIDE.DEST and target_edge:
+                target_edge['flow_side'] = FLOWSIDE.DEST.value
+            
+            # print edge data
+            print(f"Edge {e.num:2d}: {e.src:5s} -> {e.dest:5s}, Flow Side: {e.flow_side.name}")
+        
+        self.draw()
+
+        # try:
+        #     with open('graph.json', 'w') as f:
+        #         json.dump(data, f, indent=2)
+        #     self.update_status_temp("Graph saved to graph.json")
+        # except Exception as e:
+        #     self.update_status_temp(f"Error saving graph: {e}")
 
     def save_png(self):
         x = self.root.winfo_rootx() + self.canvas.winfo_x()
