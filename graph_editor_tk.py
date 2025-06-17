@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 import json
-from PIL import ImageGrab
+from PIL import Image
+import io
 import math
 import lib_bonds as lb
 from lib_bonds import FLOWSIDE, FlyEdge
@@ -591,11 +592,11 @@ class GraphEditorApp:
 
     def report(self):
         # Save the current graph to graph.json in the workspace
-        data = {
-            'nodes': self.nodes,
-            'edges': self.edges,
-            'next_id': self.next_id
-        }
+        # data = {
+        #     'nodes': self.nodes,
+        #     'edges': self.edges,
+        #     'next_id': self.next_id
+        # }
 
         ns = []
         for node in self.nodes:
@@ -629,6 +630,7 @@ class GraphEditorApp:
 
         lb.assign_causality_to_all_nodes(es)
         lb.plot_graph(es, ns, f"graph.png")
+        lb.report_equations(es, report_all=True, file_name=f"bond_equations.txt")
 
         
         for e in es:
@@ -653,13 +655,12 @@ class GraphEditorApp:
         #     self.update_status_temp(f"Error saving graph: {e}")
 
     def save_png(self):
-        x = self.root.winfo_rootx() + self.canvas.winfo_x()
-        y = self.root.winfo_rooty() + self.canvas.winfo_y()
-        x1 = x + self.canvas.winfo_width()
-        y1 = y + self.canvas.winfo_height()
         path = filedialog.asksaveasfilename(defaultextension='.png', filetypes=[('PNG','*.png')])
         if path:
-            ImageGrab.grab().crop((x, y, x1, y1)).save(path)
+            # Generate a postscript file in memory
+            ps = self.canvas.postscript(colormode='color')
+            img = Image.open(io.BytesIO(ps.encode('utf-8')))
+            img.save(path, 'png')
 
     def delete_selected(self):
         total_nodes_deleted = 0
