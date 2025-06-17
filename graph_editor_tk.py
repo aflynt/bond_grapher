@@ -566,21 +566,18 @@ class GraphEditorApp:
                 self.draw()
 
     def report(self):
-        report = 'Nodes:\n'
-        for n in self.nodes:
-            report += f"  - ID: {n['id']}, Label: {n['label']}, Type: {n['type']}, X: {n['x']:.1f}, Y: {n['y']:.1f}\n"
-        report += '\nEdges:\n'
-        for e in self.edges:
-            start_node = next((n for n in self.nodes if n['id'] == e['startNodeId']), None)
-            end_node = next((n for n in self.nodes if n['id'] == e['endNodeId']), None)
-            start_label = start_node['label'] if start_node else 'N/A'
-            end_label = end_node['label'] if end_node else 'N/A'
-            report += f"  - ID: {e['id']}, Label: {e['label']}, From: {start_label} (ID: {e['startNodeId']}) To: {end_label} (ID: {e['endNodeId']})\n"
-        path = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=[('Text','*.txt')])
-        if path:
-            with open(path, 'w') as f:
-                f.write(report)
-            self.update_status_temp("Report saved to text file")
+        # Save the current graph to graph.json in the workspace
+        data = {
+            'nodes': self.nodes,
+            'edges': self.edges,
+            'next_id': self.next_id
+        }
+        try:
+            with open('graph.json', 'w') as f:
+                json.dump(data, f, indent=2)
+            self.update_status_temp("Graph saved to graph.json")
+        except Exception as e:
+            self.update_status_temp(f"Error saving graph: {e}")
 
     def save_png(self):
         x = self.root.winfo_rootx() + self.canvas.winfo_x()
