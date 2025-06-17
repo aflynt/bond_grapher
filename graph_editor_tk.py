@@ -10,7 +10,7 @@ class GraphEditorApp:
 
         # State
         self.nodes = []  # list of dicts: {id, x, y, label, type}
-        self.edges = []  # list of dicts: {id, start, end, label}
+        self.edges = []  # list of dicts: {id, startNodeId, endNodeId, label}
         self.next_id = 1
         self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'
         self.edge_start_node = None
@@ -36,21 +36,33 @@ class GraphEditorApp:
     def create_toolbar(self):
         toolbar = tk.Frame(self.root)
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
-        btns = [
+        
+        # Tool buttons
+        self.tool_buttons = []
+        for text, cmd in [
             ("Select", self.set_select),
             ("Add Node", self.set_node),
             ("Add Junction", self.set_junction),
-            ("Add Edge", self.set_edge),
-            ("Save Graph", self.save_graph),
-            ("Load Graph", self.load_graph),
-            ("Report", self.report),
-            ("Save PNG", self.save_png),
-            ("Delete", self.delete_selected),
-            ("Clear", self.clear_canvas)
-        ]
-        for text, cmd in btns:
-            b = tk.Button(toolbar, text=text, width=12, command=cmd)
-            b.pack(pady=2)
+            ("Add Edge", self.set_edge)
+        ]:
+            btn = tk.Button(toolbar, text=text, width=12, command=cmd)
+            btn.pack(pady=2)
+            self.tool_buttons.append(btn)
+
+        # Action buttons
+        tk.Button(toolbar, text="Save Graph", width=12, command=self.save_graph).pack(pady=2)
+        tk.Button(toolbar, text="Load Graph", width=12, command=self.load_graph).pack(pady=2)
+        tk.Button(toolbar, text="Report", width=12, command=self.report).pack(pady=2)
+        tk.Button(toolbar, text="Save PNG", width=12, command=self.save_png).pack(pady=2)
+        
+        # Delete and Clear buttons
+        self.delete_btn = tk.Button(toolbar, text="Delete", width=12, 
+                                  command=self.delete_selected, 
+                                  state=tk.DISABLED)
+        self.delete_btn.pack(pady=2)
+        
+        tk.Button(toolbar, text="Clear All", width=12, 
+                 command=self.clear_canvas).pack(pady=2)
 
     def create_canvas(self):
         self.canvas = tk.Canvas(self.root, bg='#f8fafc')
@@ -78,19 +90,32 @@ class GraphEditorApp:
         if self.current_mode == 'node':
             label = simpledialog.askstring("Node Label", "Enter label for new node:")
             if label:
-                self.nodes.append({'id': self.next_id, 'x': x, 'y': y, 'label': label, 'type': 'node'})
+                self.nodes.append({
+                    'id': self.next_id,
+                    'x': x,
+                    'y': y,
+                    'label': label,
+                    'type': 'node'
+                })
                 self.next_id += 1
                 self.draw()
         elif self.current_mode == 'junction':
             label = simpledialog.askstring("Junction Label", "Enter label for new junction:")
             if label:
-                self.nodes.append({'id': self.next_id, 'x': x, 'y': y, 'label': label, 'type': 'junction'})
+                self.nodes.append({
+                    'id': self.next_id,
+                    'x': x,
+                    'y': y,
+                    'label': label,
+                    'type': 'junction'
+                })
                 self.next_id += 1
                 self.draw()
         elif self.current_mode == 'edge':
             node = self.get_node_at(x, y)
             if not self.edge_start_node and node:
                 self.edge_start_node = node
+                messagebox.showinfo("Edge Creation", f"Selected start node: {node['label']}. Click end node.")
             elif self.edge_start_node and node and node != self.edge_start_node:
                 label = simpledialog.askstring("Edge Label", "Enter label for new edge:")
                 if label:
@@ -103,12 +128,10 @@ class GraphEditorApp:
                     self.next_id += 1
                     self.draw()
                 self.edge_start_node = None
-                self.draw()
-        else: # 'select' mode
+        else:  # 'select' mode
             node = self.get_node_at(x, y)
             edge = self.get_edge_at(x, y)
             
-            # Handle selection
             if node:
                 self.selected_node = node
                 self.selected_edge = None
@@ -123,6 +146,7 @@ class GraphEditorApp:
                 self.selected_edge = None
                 self.dragging_node = None
             
+            self.update_delete_button_state()
             self.draw()
 
     def on_mouse_move(self, event):
@@ -323,15 +347,52 @@ class GraphEditorApp:
             ImageGrab.grab().crop((x, y, x1, y1)).save(path)
 
     def delete_selected(self):
-        # Placeholder: no selection in basic port
-        pass
+        if self.selected_node:
+            # Remove any edges connected to this node
+            original_edge_count = len(self.edges)
+            self.edges = [edge for edge in self.edges 
+                         if edge['startNodeId'] != self.selected_node['id'] 
+                         and edge['endNodeId'] != self.selected_node['id']]
+            edges_removed = original_edge_count - len(self.edges)
+            
+            # Remove the node
+            self.nodes = [node for node in self.nodes if node['id'] != self.selected_node['id']]
+            self.selected_node = None
+            self.dragging_node = None
+            
+            if edges_removed > 0:
+                messagebox.showinfo("Delete", f"Node and {edges_removed} connected edge(s) deleted")
+            else:
+                messagebox.showinfo("Delete", "Node deleted")
+                
+        elif self.selected_edge:
+            # Remove just the edge
+            self.edges = [edge for edge in self.edges if edge['id'] != self.selected_edge['id']]
+            self.selected_edge = None
+            messagebox.showinfo("Delete", "Edge deleted")
+            
+        self.update_delete_button_state()
+        self.draw()
+
+    def update_delete_button_state(self):
+        # Enable/disable delete button based on selection
+        if self.selected_node or self.selected_edge:
+            self.delete_btn.config(state=tk.NORMAL)
+        else:
+            self.delete_btn.config(state=tk.DISABLED)
 
     def clear_canvas(self):
-        if messagebox.askyesno('Clear Canvas', 'Are you sure?'):
-            self.nodes.clear()
-            self.edges.clear()
+        if messagebox.askyesno("Clear All", "Are you sure you want to clear the entire canvas?"):
+            self.nodes = []
+            self.edges = []
             self.next_id = 1
+            self.selected_node = None
+            self.selected_edge = None
+            self.dragging_node = None
+            self.edge_start_node = None
+            self.update_delete_button_state()
             self.draw()
+            messagebox.showinfo("Clear All", "Canvas cleared")
 
 if __name__ == '__main__':
     root = tk.Tk()
