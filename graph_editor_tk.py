@@ -9,6 +9,23 @@ class GraphEditorApp:
         self.root = root
         self.root.title("Interactive Graph Editor (Tkinter)")
 
+        # Create main container
+        self.main_container = tk.Frame(self.root)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # Status bar
+        self.status_bar = tk.Label(
+            self.root, 
+            text="Ready", 
+            bd=1, 
+            relief=tk.SUNKEN, 
+            anchor=tk.W,
+            font=("Inter", 10),
+            padx=5,
+            pady=3
+        )
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         # State
         self.nodes = []  # list of dicts: {id, x, y, label, type}
         self.edges = []  # list of dicts: {id, startNodeId, endNodeId, label}
@@ -35,7 +52,7 @@ class GraphEditorApp:
         self.draw()
 
     def create_toolbar(self):
-        toolbar = tk.Frame(self.root)
+        toolbar = tk.Frame(self.main_container)  # Changed from self.root to self.main_container
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
         
         # Tool buttons
@@ -66,7 +83,7 @@ class GraphEditorApp:
                  command=self.clear_canvas).pack(pady=2)
 
     def create_canvas(self):
-        self.canvas = tk.Canvas(self.root, bg='#f8fafc')
+        self.canvas = tk.Canvas(self.main_container)  # Changed from self.root to self.main_container
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.canvas.bind('<ButtonPress-1>', self.on_mouse_down)
         self.canvas.bind('<B1-Motion>', self.on_mouse_move)
@@ -86,6 +103,45 @@ class GraphEditorApp:
         y = (sy - self.pan_y) / self.scale
         return x, y
 
+    def set_select(self):
+        self.current_mode = 'select'
+        self.update_status()
+
+    def set_node(self):
+        self.current_mode = 'node'
+        self.update_status()
+
+    def set_junction(self):
+        self.current_mode = 'junction'
+        self.update_status()
+
+    def set_edge(self):
+        self.current_mode = 'edge'
+        self.update_status()
+
+    def update_status(self):
+        """Update the status bar text based on current state."""
+        mode_info = {
+            'select': "Select Mode: Click to select nodes/edges. Drag to move nodes.",
+            'node': "Node Mode: Click to add a new node.",
+            'junction': "Junction Mode: Click to add a new junction.",
+            'edge': "Edge Mode: Click two nodes to create an edge between them."
+        }
+
+        status_text = mode_info.get(self.current_mode, "Ready")
+
+        # Add selection information if in select mode
+        if self.current_mode == 'select':
+            if self.selected_node:
+                status_text += f" | Selected Node: {self.selected_node['label']}"
+            elif self.selected_edge:
+                status_text += f" | Selected Edge: {self.selected_edge['label']}"
+        # Add edge creation progress if in edge mode
+        elif self.current_mode == 'edge' and self.edge_start_node:
+            status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
+
+        self.status_bar.config(text=status_text)
+
     def on_mouse_down(self, event):
         x, y = self.screen_to_world(event.x, event.y)
         if self.current_mode == 'node':
@@ -99,6 +155,7 @@ class GraphEditorApp:
                     'type': 'node'
                 })
                 self.next_id += 1
+                self.update_status()
                 self.draw()
         elif self.current_mode == 'junction':
             label = simpledialog.askstring("Junction Label", "Enter label for new junction:")
@@ -111,6 +168,7 @@ class GraphEditorApp:
                     'type': 'junction'
                 })
                 self.next_id += 1
+                self.update_status()
                 self.draw()
         elif self.current_mode == 'edge':
             node = self.get_node_at(x, y)
@@ -284,6 +342,31 @@ class GraphEditorApp:
                 'y': source_node['y'] + NODE_CONNECTION_OFFSET * math.sin(angle)
             }
 
+    def draw_arrowhead(self, x1, y1, x2, y2, color):
+        """Draw a single-wing arrowhead at point (x2, y2)."""
+        # Calculate angle of the line
+        angle = math.atan2(y2 - y1, x2 - x1)
+        
+        # Arrowhead parameters
+        headlen = 10  # Length of arrowhead
+        angle_wing = math.pi / 7  # Angle of the wing (about 25.7 degrees)
+        
+        # Calculate the point for the single wing
+        wing_x = x2 - headlen * math.cos(angle - angle_wing)
+        wing_y = y2 - headlen * math.sin(angle - angle_wing)
+        
+        # Calculate a point halfway back along the edge for the base of the arrowhead
+        base_x = x2 - headlen * 0.5 * math.cos(angle)
+        base_y = y2 - headlen * 0.5 * math.sin(angle)
+        
+        # Draw filled arrowhead
+        self.canvas.create_polygon(
+            x2, y2,  # Tip
+            wing_x, wing_y,  # Wing point
+            base_x, base_y,  # Base point
+            fill=color, outline=color
+        )
+
     def draw(self):
         self.canvas.delete('all')
         # draw edges
@@ -303,20 +386,27 @@ class GraphEditorApp:
             
             # Set edge color based on selection
             edge_color = self.SELECTION_COLOR if edge == self.selected_edge else self.DEFAULT_COLOR
-            self.canvas.create_line(x1, y1, x2, y2, 
-                                 arrow=tk.LAST, 
-                                 fill=edge_color,
-                                 width=2 if edge == self.selected_edge else 1,
-                                 tags=("edge", f"edge_{edge['id']}"))
+            
+            # Draw the edge line
+            self.canvas.create_line(
+                x1, y1, x2, y2,
+                fill=edge_color,
+                width=2 if edge == self.selected_edge else 1,
+                tags=("edge", f"edge_{edge['id']}")
+            )
+            
+            # Draw custom arrowhead
+            self.draw_arrowhead(x1, y1, x2, y2, edge_color)
             
             # Draw label at midpoint
             mx = (x1 + x2) / 2
             my = (y1 + y2) / 2 - 10  # Offset label slightly above the line
-            self.canvas.create_text(mx, my, 
-                                 text=edge['label'], 
-                                 font=("Inter", 10),
-                                 fill=edge_color,
-                                 tags=("edge_label", f"edge_label_{edge['id']}"))
+            self.canvas.create_text(
+                mx, my,
+                text=edge['label'],
+                font=("Inter", 10),
+                fill=edge_color,
+                tags=("edge_label", f"edge_label_{edge['id']}"))
         
         # draw nodes
         for node in self.nodes:
@@ -342,15 +432,6 @@ class GraphEditorApp:
                                     font=("Inter", 10),
                                     fill=node_color,
                                     tags=("node_label", f"node_label_{node['id']}"))
-
-    def set_select(self):
-        self.current_mode = 'select'
-    def set_node(self):
-        self.current_mode = 'node'
-    def set_junction(self):
-        self.current_mode = 'junction'
-    def set_edge(self):
-        self.current_mode = 'edge'
 
     def save_graph(self):
         data = {'nodes': self.nodes, 'edges': self.edges, 'next_id': self.next_id}
@@ -417,6 +498,7 @@ class GraphEditorApp:
             messagebox.showinfo("Delete", "Edge deleted")
             
         self.update_delete_button_state()
+        self.update_status()
         self.draw()
 
     def update_delete_button_state(self):
@@ -436,6 +518,7 @@ class GraphEditorApp:
             self.dragging_node = None
             self.edge_start_node = None
             self.update_delete_button_state()
+            self.update_status()
             self.draw()
             messagebox.showinfo("Clear All", "Canvas cleared")
 
