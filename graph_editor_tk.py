@@ -30,7 +30,8 @@ class GraphEditorApp:
         self.nodes = []  # list of dicts: {id, x, y, label, type}
         self.edges = []  # list of dicts: {id, startNodeId, endNodeId, label}
         self.next_id = 1
-        self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'        self.edge_start_node = None
+        self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'
+        self.edge_start_node = None
         self.selected_nodes = set()  # Set of selected node IDs
         self.selected_edges = set()  # Set of selected edge IDs
         self.scale = 1.0
@@ -38,12 +39,16 @@ class GraphEditorApp:
         self.pan_y = 0
         self.is_panning = False
         self.last_mouse = (0, 0)
-        self.dragging_node = None
-        self.drag_start_offset = (0, 0)
+        self.is_dragging = False
+        self.drag_start_offsets = {}  # Dictionary of node_id: (offset_x, offset_y)
+        self.box_select_start = None   # (x, y) in screen coordinates
+        self.box_select_rect = None    # Flag to indicate if we're drawing a box
+        self.box_select_last_pos = None  # Store last mouse position for box selection
 
         # Colors
         self.SELECTION_COLOR = '#3b82f6'  # blue-500
         self.DEFAULT_COLOR = 'black'
+        self.BOX_SELECT_COLOR = '#3b82f6'  # blue-500 for selection box outline
         self.ACTIVE_BTN_BG = '#3b82f6'    # blue-500
         self.ACTIVE_BTN_FG = 'white'      # white text
         self.INACTIVE_BTN_BG = '#f5f5f5'  # gray-100
@@ -166,8 +171,6 @@ class GraphEditorApp:
 
     def on_mouse_down(self, event):
         x, y = self.screen_to_world(event.x, event.y)
-        # Check if Ctrl key is pressed for multi-select
-        is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
         if self.current_mode == 'node':
             label = simpledialog.askstring("Node Label", "Enter label for new node:")
             if label:
@@ -211,41 +214,48 @@ class GraphEditorApp:
                     self.draw()
                 self.edge_start_node = None
         else:  # 'select' mode
-            # Check if Ctrl key is pressed for multi-select
+            # Check if Ctrl key is pressed for explicit multi-select behavior
             is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
             node = self.get_node_at(x, y)
             edge = self.get_edge_at(x, y)
             
             if node:
-                if is_multi_select:
-                    # Toggle node selection
-                    if node['id'] in self.selected_nodes:
-                        self.selected_nodes.remove(node['id'])
-                    else:
-                        self.selected_nodes.add(node['id'])
+                # If clicking an already selected node, toggle its selection
+                if node['id'] in self.selected_nodes:
+                    self.selected_nodes.remove(node['id'])
+                    self.is_dragging = False
                 else:
-                    # Single select, clear previous selections
-                    self.selected_nodes = {node['id']}
-                    self.selected_edges.clear()
-                    self.dragging_node = node
-                    self.drag_start_offset = (x - node['x'], y - node['y'])
+                    # If not holding Ctrl and clicking an unselected node,
+                    # clear other selections only if clicking outside current selection
+                    if not is_multi_select:
+                        self.selected_edges.clear()
+                    self.selected_nodes.add(node['id'])
+                
+                # Set up dragging for all selected nodes if we just selected or already selected the node
+                if node['id'] in self.selected_nodes:
+                    self.is_dragging = True
+                    self.drag_start_offsets.clear()
+                    for n in self.nodes:
+                        if n['id'] in self.selected_nodes:
+                            self.drag_start_offsets[n['id']] = (x - n['x'], y - n['y'])
+
             elif edge:
-                if is_multi_select:
-                    # Toggle edge selection
-                    if edge['id'] in self.selected_edges:
-                        self.selected_edges.remove(edge['id'])
-                    else:
-                        self.selected_edges.add(edge['id'])
+                # If clicking an already selected edge, toggle its selection
+                if edge['id'] in self.selected_edges:
+                    self.selected_edges.remove(edge['id'])
                 else:
-                    # Single select, clear previous selections
-                    self.selected_edges = {edge['id']}
+                    # If not holding Ctrl and clicking an unselected edge,
+                    # clear other selections only if clicking outside current selection
+                    if not is_multi_select:
+                        self.selected_nodes.clear()
+                    self.selected_edges.add(edge['id'])
+            else:
+                # Click on empty space - start box selection or clear selection
+                if not is_multi_select:
                     self.selected_nodes.clear()
-                    self.dragging_node = None
-            elif not is_multi_select:
-                # Click on empty space without Ctrl - clear all selections
-                self.selected_nodes.clear()
-                self.selected_edges.clear()
-                self.dragging_node = None
+                    self.selected_edges.clear()
+                # Start box selection
+                self.box_select_start = (event.x, event.y)  # Store screen coordinates
             
             self.update_delete_button_state()
             self.update_status()
@@ -253,24 +263,66 @@ class GraphEditorApp:
 
     def on_mouse_move(self, event):
         if self.is_panning: # Pan logic should take precedence if active
-            self.do_pan(event) # Call existing do_pan directly
+            self.do_pan(event)
             return
 
-        if self.dragging_node and self.current_mode == 'select':
+        if self.is_dragging and self.current_mode == 'select':
             x, y = self.screen_to_world(event.x, event.y)
-            self.dragging_node['x'] = x - self.drag_start_offset[0]
-            self.dragging_node['y'] = y - self.drag_start_offset[1]
+            # Move all selected nodes
+            for node in self.nodes:
+                if node['id'] in self.selected_nodes:
+                    offset_x, offset_y = self.drag_start_offsets[node['id']]
+                    node['x'] = x - offset_x
+                    node['y'] = y - offset_y
+            self.draw()
+        elif self.box_select_start and self.current_mode == 'select':
+            # Update box selection
+            self.box_select_last_pos = (event.x, event.y)
             self.draw()
 
     def on_mouse_up(self, event):
         if self.is_panning: # Ensure panning state is correctly reset
             self.end_pan(event) # Call existing end_pan
-            # Do not reset dragging_node here if panning was the primary action
             return
 
-        if self.dragging_node and self.current_mode == 'select':
-            self.dragging_node = None
-            # self.draw() # Optional: draw if needed, though mouse_move usually covers it
+        if self.is_dragging and self.current_mode == 'select':
+            self.is_dragging = False
+            self.drag_start_offsets.clear()
+        elif self.box_select_start and self.current_mode == 'select':
+            # Get selection box coordinates in screen space
+            x1, y1 = self.box_select_start
+            x2, y2 = event.x, event.y
+            
+            # Convert to world coordinates for checking nodes
+            wx1, wy1 = self.screen_to_world(min(x1, x2), min(y1, y2))
+            wx2, wy2 = self.screen_to_world(max(x1, x2), max(y1, y2))
+            
+            # Check for Ctrl key for adding to existing selection
+            is_multi_select = event.state & 0x4
+            if not is_multi_select:
+                self.selected_nodes.clear()
+                self.selected_edges.clear()
+            
+            # Select nodes in box
+            for node in self.nodes:
+                if wx1 <= node['x'] <= wx2 and wy1 <= node['y'] <= wy2:
+                    self.selected_nodes.add(node['id'])
+            
+            # Select edges with both endpoints in box
+            for edge in self.edges:
+                start_node = next((n for n in self.nodes if n['id'] == edge['startNodeId']), None)
+                end_node = next((n for n in self.nodes if n['id'] == edge['endNodeId']), None)
+                if start_node and end_node:
+                    if (wx1 <= start_node['x'] <= wx2 and wy1 <= start_node['y'] <= wy2 and
+                        wx1 <= end_node['x'] <= wx2 and wy1 <= end_node['y'] <= wy2):
+                        self.selected_edges.add(edge['id'])
+            
+            # Clean up box selection
+            self.box_select_start = None
+            self.box_select_last_pos = None
+            self.draw()
+            self.update_status()
+            self.update_delete_button_state()
 
     def start_pan(self, event):
         self.is_panning = True
@@ -475,6 +527,18 @@ class GraphEditorApp:
                                     font=("Inter", 10),
                                     fill=node_color,
                                     tags=("node_label", f"node_label_{node['id']}"))
+
+        # Re-draw selection box if it exists (must be drawn last to appear on top)
+        if self.box_select_start and self.box_select_last_pos:
+            x1, y1 = self.box_select_start
+            x2, y2 = self.box_select_last_pos
+            self.canvas.create_rectangle(
+                min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2),
+                outline=self.BOX_SELECT_COLOR,
+                width=1,
+                dash=(2, 2),  # Creates a dashed line effect
+                tags=('selection_box',)
+            )
 
     def save_graph(self):
         data = {'nodes': self.nodes, 'edges': self.edges, 'next_id': self.next_id}
