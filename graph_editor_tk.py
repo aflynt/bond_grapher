@@ -57,6 +57,7 @@ class GraphEditorApp:
         # Setup UI
         self.create_toolbar()
         self.create_canvas()
+        self.setup_context_menu()
         self.draw()
 
         # Add keyboard bindings
@@ -87,15 +88,12 @@ class GraphEditorApp:
         tk.Button(toolbar, text="Load Graph", width=12, command=self.load_graph).pack(pady=2)
         tk.Button(toolbar, text="Report", width=12, command=self.report).pack(pady=2)
         tk.Button(toolbar, text="Save PNG", width=12, command=self.save_png).pack(pady=2)
+          # Delete and Clear buttons
+        delete_btn = tk.Button(toolbar, text="Delete", width=12, command=self.delete_selected, state=tk.DISABLED)
+        delete_btn.pack(pady=2)
+        self.delete_btn = delete_btn
         
-        # Delete and Clear buttons
-        self.delete_btn = tk.Button(toolbar, text="Delete", width=12, 
-                                  command=self.delete_selected, 
-                                  state=tk.DISABLED)
-        self.delete_btn.pack(pady=2)
-        
-        tk.Button(toolbar, text="Clear All", width=12, 
-                 command=self.clear_canvas).pack(pady=2)
+        tk.Button(toolbar, text="Clear All", width=12, command=self.clear_canvas).pack(pady=2)
 
     def create_canvas(self):
         self.canvas = tk.Canvas(self.main_container)  # Changed from self.root to self.main_container
@@ -107,6 +105,11 @@ class GraphEditorApp:
         self.canvas.bind('<ButtonPress-2>', self.start_pan)
         self.canvas.bind('<B2-Motion>', self.do_pan)
         self.canvas.bind('<ButtonRelease-2>', self.end_pan)
+        self.canvas.bind('<Button-3>', self.show_context_menu)  # Right-click context menu
+
+    def setup_context_menu(self):
+        """Initialize the right-click context menu"""
+        self.context_menu = tk.Menu(self.root, tearoff=0)
 
     def world_to_screen(self, x, y):
         sx = x * self.scale + self.pan_x
@@ -681,6 +684,51 @@ class GraphEditorApp:
         while next_num in used_numbers:
             next_num += 1
         return str(next_num)
+
+    def show_context_menu(self, event):
+        """Show context menu for right-clicked element"""
+        x, y = self.screen_to_world(event.x, event.y)
+        
+        # Check if we clicked on a node or edge
+        node = self.get_node_at(x, y)
+        edge = self.get_edge_at(x, y)
+        
+        if node or edge:
+            # Clear existing menu items
+            self.context_menu.delete(0, tk.END)
+            
+            if node:
+                self.context_menu.add_command(
+                    label=f"Rename {node['type']}", 
+                    command=lambda n=node: self.rename_node(n))
+            elif edge:
+                self.context_menu.add_command(
+                    label="Rename edge",
+                    command=lambda e=edge: self.rename_edge(e))
+            
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+    
+    def rename_node(self, node):
+        """Show dialog to rename a node"""
+        new_label = simpledialog.askstring(
+            "Rename Node", 
+            f"Enter new label for {node['type']}:",
+            initialvalue=node['label'])
+        if new_label:
+            node['label'] = new_label
+            self.draw()
+            self.update_status_temp(f"{node['type'].capitalize()} renamed to: {new_label}")
+    
+    def rename_edge(self, edge):
+        """Show dialog to rename an edge"""
+        new_label = simpledialog.askstring(
+            "Rename Edge",
+            "Enter new label for edge:",
+            initialvalue=edge['label'])
+        if new_label:
+            edge['label'] = new_label
+            self.draw()
+            self.update_status_temp(f"Edge renamed to: {new_label}")
 
 if __name__ == '__main__':
     root = tk.Tk()
