@@ -94,8 +94,14 @@ class GraphEditorApp:
             elif self.edge_start_node and node and node != self.edge_start_node:
                 label = simpledialog.askstring("Edge Label", "Enter label for new edge:")
                 if label:
-                    self.edges.append({'id': self.next_id, 'start': self.edge_start_node['id'], 'end': node['id'], 'label': label})
+                    self.edges.append({
+                        'id': self.next_id,
+                        'startNodeId': self.edge_start_node['id'],
+                        'endNodeId': node['id'],
+                        'label': label
+                    })
                     self.next_id += 1
+                    self.draw()
                 self.edge_start_node = None
                 self.draw()
         else: # 'select' mode
@@ -192,8 +198,8 @@ class GraphEditorApp:
         # Convert world coordinates to screen coordinates for hit testing
         tolerance = 5 / self.scale  # 5 pixels tolerance in world coordinates
         for edge in reversed(self.edges):
-            start_node = next((n for n in self.nodes if n['id'] == edge['start']), None)
-            end_node = next((n for n in self.nodes if n['id'] == edge['end']), None)
+            start_node = next((n for n in self.nodes if n['id'] == edge['startNodeId']), None)
+            end_node = next((n for n in self.nodes if n['id'] == edge['endNodeId']), None)
             if not start_node or not end_node:
                 continue
 
@@ -220,8 +226,8 @@ class GraphEditorApp:
         self.canvas.delete('all')
         # draw edges
         for edge in self.edges:
-            start_node_obj = next((n for n in self.nodes if n['id'] == edge['start']), None)
-            end_node_obj = next((n for n in self.nodes if n['id'] == edge['end']), None)
+            start_node_obj = next((n for n in self.nodes if n['id'] == edge['startNodeId']), None)
+            end_node_obj = next((n for n in self.nodes if n['id'] == edge['endNodeId']), None)
             if not start_node_obj or not end_node_obj:
                 continue
 
@@ -300,7 +306,11 @@ class GraphEditorApp:
             report += f"  - ID: {n['id']}, Label: {n['label']}, Type: {n['type']}, X: {n['x']:.1f}, Y: {n['y']:.1f}\n"
         report += '\nEdges:\n'
         for e in self.edges:
-            report += f"  - ID: {e['id']}, Label: {e['label']}, From: {e['start']} To: {e['end']}\n"
+            start_node = next((n for n in self.nodes if n['id'] == e['startNodeId']), None)
+            end_node = next((n for n in self.nodes if n['id'] == e['endNodeId']), None)
+            start_label = start_node['label'] if start_node else 'N/A'
+            end_label = end_node['label'] if end_node else 'N/A'
+            report += f"  - ID: {e['id']}, Label: {e['label']}, From: {start_label} (ID: {e['startNodeId']}) To: {end_label} (ID: {e['endNodeId']})\n"
         messagebox.showinfo('Graph Report', report)
 
     def save_png(self):
