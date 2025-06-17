@@ -59,6 +59,10 @@ class GraphEditorApp:
         self.create_canvas()
         self.draw()
 
+        # Add keyboard bindings
+        self.root.bind('<Delete>', self.handle_delete_key)
+        self.root.bind('<BackSpace>', self.handle_delete_key)
+
     def create_toolbar(self):
         toolbar = tk.Frame(self.main_container)  # Changed from self.root to self.main_container
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
@@ -653,6 +657,12 @@ class GraphEditorApp:
                 btn.config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
             else:
                 btn.config(bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
+
+    def handle_delete_key(self, event):
+        """Handle Delete or Backspace key press"""
+        if self.selected_nodes or self.selected_edges:
+            self.delete_selected()
+            return 'break'  # Prevent the event from propagating
 
 if __name__ == '__main__':
     root = tk.Tk()
