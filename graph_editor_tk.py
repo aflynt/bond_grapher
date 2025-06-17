@@ -142,6 +142,12 @@ class GraphEditorApp:
 
         self.status_bar.config(text=status_text)
 
+    def update_status_temp(self, message, duration=3000):
+        """Update status bar with a message that disappears after duration (ms)"""
+        self.status_bar.config(text=message)
+        # Schedule reset of status bar
+        self.root.after(duration, lambda: self.status_bar.config(text="Ready"))
+
     def on_mouse_down(self, event):
         x, y = self.screen_to_world(event.x, event.y)
         if self.current_mode == 'node':
@@ -160,8 +166,7 @@ class GraphEditorApp:
         elif self.current_mode == 'junction':
             label = simpledialog.askstring("Junction Label", "Enter label for new junction:")
             if label:
-                self.nodes.append({
-                    'id': self.next_id,
+                self.nodes.append({                    'id': self.next_id,
                     'x': x,
                     'y': y,
                     'label': label,
@@ -174,7 +179,7 @@ class GraphEditorApp:
             node = self.get_node_at(x, y)
             if not self.edge_start_node and node:
                 self.edge_start_node = node
-                messagebox.showinfo("Edge Creation", f"Selected start node: {node['label']}. Click end node.")
+                self.update_status_temp(f"Selected start node: {node['label']}. Click end node.")
             elif self.edge_start_node and node and node != self.edge_start_node:
                 label = simpledialog.askstring("Edge Label", "Enter label for new edge:")
                 if label:
@@ -461,7 +466,11 @@ class GraphEditorApp:
             start_label = start_node['label'] if start_node else 'N/A'
             end_label = end_node['label'] if end_node else 'N/A'
             report += f"  - ID: {e['id']}, Label: {e['label']}, From: {start_label} (ID: {e['startNodeId']}) To: {end_label} (ID: {e['endNodeId']})\n"
-        messagebox.showinfo('Graph Report', report)
+        path = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=[('Text','*.txt')])
+        if path:
+            with open(path, 'w') as f:
+                f.write(report)
+            self.update_status_temp("Report saved to text file")
 
     def save_png(self):
         x = self.root.winfo_rootx() + self.canvas.winfo_x()
@@ -480,22 +489,20 @@ class GraphEditorApp:
                          if edge['startNodeId'] != self.selected_node['id'] 
                          and edge['endNodeId'] != self.selected_node['id']]
             edges_removed = original_edge_count - len(self.edges)
-            
             # Remove the node
             self.nodes = [node for node in self.nodes if node['id'] != self.selected_node['id']]
             self.selected_node = None
             self.dragging_node = None
-            
             if edges_removed > 0:
-                messagebox.showinfo("Delete", f"Node and {edges_removed} connected edge(s) deleted")
+                self.update_status_temp(f"Node and {edges_removed} connected edge(s) deleted")
             else:
-                messagebox.showinfo("Delete", "Node deleted")
+                self.update_status_temp("Node deleted")
                 
         elif self.selected_edge:
             # Remove just the edge
             self.edges = [edge for edge in self.edges if edge['id'] != self.selected_edge['id']]
             self.selected_edge = None
-            messagebox.showinfo("Delete", "Edge deleted")
+            self.update_status_temp("Edge deleted")
             
         self.update_delete_button_state()
         self.update_status()
@@ -520,7 +527,7 @@ class GraphEditorApp:
             self.update_delete_button_state()
             self.update_status()
             self.draw()
-            messagebox.showinfo("Clear All", "Canvas cleared")
+            self.update_status_temp("Canvas cleared")
 
 if __name__ == '__main__':
     root = tk.Tk()
