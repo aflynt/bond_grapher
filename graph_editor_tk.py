@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 import json
 from PIL import ImageGrab
+import math
 
 class GraphEditorApp:
     def __init__(self, root):
@@ -246,6 +247,43 @@ class GraphEditorApp:
                 return edge
         return None
 
+    def get_edge_connection_point(self, source_node, target_node):
+        """Calculate the point where an edge should connect to a node, with appropriate offset."""
+        # Calculate direction vector from source to target
+        dx = target_node['x'] - source_node['x']
+        dy = target_node['y'] - source_node['y']
+        angle = math.atan2(dy, dx)
+        
+        # Different offsets based on node type
+        if source_node['type'] == 'junction':
+            # For junctions, use rectangular hit detection
+            w = 15  # half width
+            h = 3   # half height
+            
+            # Calculate intersection with junction rectangle
+            if w * abs(math.sin(angle)) > h * abs(math.cos(angle)):
+                # Intersects top/bottom edge
+                intersect_x = source_node['x'] + h * math.cos(angle) / abs(math.sin(angle)) * math.copysign(1, math.sin(angle))
+                intersect_y = source_node['y'] + h * math.copysign(1, math.sin(angle))
+            else:
+                # Intersects left/right edge
+                intersect_x = source_node['x'] + w * math.copysign(1, math.cos(angle))
+                intersect_y = source_node['y'] + w * math.sin(angle) / abs(math.cos(angle)) * math.copysign(1, math.cos(angle))
+            
+            # Add extra offset
+            JUNCTION_CONNECTION_OFFSET = 25
+            return {
+                'x': intersect_x + JUNCTION_CONNECTION_OFFSET * math.cos(angle),
+                'y': intersect_y + JUNCTION_CONNECTION_OFFSET * math.sin(angle)
+            }
+        else:
+            # For regular nodes, use circular offset
+            NODE_CONNECTION_OFFSET = 30
+            return {
+                'x': source_node['x'] + NODE_CONNECTION_OFFSET * math.cos(angle),
+                'y': source_node['y'] + NODE_CONNECTION_OFFSET * math.sin(angle)
+            }
+
     def draw(self):
         self.canvas.delete('all')
         # draw edges
@@ -255,8 +293,13 @@ class GraphEditorApp:
             if not start_node_obj or not end_node_obj:
                 continue
 
-            x1, y1 = self.world_to_screen(start_node_obj['x'], start_node_obj['y'])
-            x2, y2 = self.world_to_screen(end_node_obj['x'], end_node_obj['y'])
+            # Get connection points with offsets
+            start_point = self.get_edge_connection_point(start_node_obj, end_node_obj)
+            end_point = self.get_edge_connection_point(end_node_obj, start_node_obj)
+            
+            # Convert to screen coordinates
+            x1, y1 = self.world_to_screen(start_point['x'], start_point['y'])
+            x2, y2 = self.world_to_screen(end_point['x'], end_point['y'])
             
             # Set edge color based on selection
             edge_color = self.SELECTION_COLOR if edge == self.selected_edge else self.DEFAULT_COLOR
@@ -266,8 +309,10 @@ class GraphEditorApp:
                                  width=2 if edge == self.selected_edge else 1,
                                  tags=("edge", f"edge_{edge['id']}"))
             
-            mx, my = (x1+x2)/2, (y1+y2)/2
-            self.canvas.create_text(mx, my-10, 
+            # Draw label at midpoint
+            mx = (x1 + x2) / 2
+            my = (y1 + y2) / 2 - 10  # Offset label slightly above the line
+            self.canvas.create_text(mx, my, 
                                  text=edge['label'], 
                                  font=("Inter", 10),
                                  fill=edge_color,
