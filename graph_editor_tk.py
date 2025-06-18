@@ -239,20 +239,21 @@ class GraphEditorApp:
             is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
             node = self.get_node_at(x, y)
             edge = self.get_edge_at(x, y)
-            
+
             if node:
-                # If clicking an already selected node, toggle its selection
-                if node['id'] in self.selected_nodes:
-                    self.selected_nodes.remove(node['id'])
-                    self.is_dragging = False
+                if is_multi_select:
+                    # Ctrl+Click toggles selection
+                    if node['id'] in self.selected_nodes:
+                        self.selected_nodes.remove(node['id'])
+                    else:
+                        self.selected_nodes.add(node['id'])
                 else:
-                    # If not holding Ctrl and clicking an unselected node,
-                    # clear other selections only if clicking outside current selection
-                    if not is_multi_select:
+                    # Standard click: select only this node, unless already selected (then keep all selection)
+                    if node['id'] not in self.selected_nodes:
+                        self.selected_nodes = {node['id']}
                         self.selected_edges.clear()
-                    self.selected_nodes.add(node['id'])
-                
-                # Set up dragging for all selected nodes if we just selected or already selected the node
+                    # else: already selected, keep all selection
+                # Set up dragging for all selected nodes
                 if node['id'] in self.selected_nodes:
                     self.is_dragging = True
                     self.drag_start_offsets.clear()
@@ -261,15 +262,18 @@ class GraphEditorApp:
                             self.drag_start_offsets[n['id']] = (x - n['x'], y - n['y'])
 
             elif edge:
-                # If clicking an already selected edge, toggle its selection
-                if edge['id'] in self.selected_edges:
-                    self.selected_edges.remove(edge['id'])
+                if is_multi_select:
+                    # Ctrl+Click toggles selection
+                    if edge['id'] in self.selected_edges:
+                        self.selected_edges.remove(edge['id'])
+                    else:
+                        self.selected_edges.add(edge['id'])
                 else:
-                    # If not holding Ctrl and clicking an unselected edge,
-                    # clear other selections only if clicking outside current selection
-                    if not is_multi_select:
+                    # Standard click: select only this edge, unless already selected (then keep all selection)
+                    if edge['id'] not in self.selected_edges:
+                        self.selected_edges = {edge['id']}
                         self.selected_nodes.clear()
-                    self.selected_edges.add(edge['id'])
+                    # else: already selected, keep all selection
             else:
                 # Click on empty space - start box selection or clear selection
                 if not is_multi_select:
@@ -277,7 +281,7 @@ class GraphEditorApp:
                     self.selected_edges.clear()
                 # Start box selection
                 self.box_select_start = (event.x, event.y)  # Store screen coordinates
-            
+
             self.update_delete_button_state()
             self.update_status()
             self.draw()
