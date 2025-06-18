@@ -67,6 +67,15 @@ class GraphEditorApp:
         self.root.bind('<Delete>', self.handle_delete_key)
         self.root.bind('<BackSpace>', self.handle_delete_key)
 
+        # Clipboard for copy/paste
+        self.clipboard_nodes = []
+        self.clipboard_edges = []  # Added clipboard_edges to store copied edges
+        # Keyboard bindings for copy/paste
+        self.root.bind('<Control-c>', self.handle_copy)
+        self.root.bind('<Control-C>', self.handle_copy)
+        self.root.bind('<Control-v>', self.handle_paste)
+        self.root.bind('<Control-V>', self.handle_paste)
+
     def create_toolbar(self):
         toolbar = tk.Frame(self.main_container)  # Changed from self.root to self.main_container
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
@@ -800,6 +809,69 @@ class GraphEditorApp:
             edge['label'] = new_label
             self.draw()
             self.update_status_temp(f"Edge renamed to: {new_label}")
+
+    def handle_copy(self, event=None):
+        # Copy selected nodes and junctions to clipboard
+        self.clipboard_nodes = []
+        self.clipboard_edges = []
+        selected_node_ids = set(self.selected_nodes)
+        for node in self.nodes:
+            if node['id'] in selected_node_ids:
+                self.clipboard_nodes.append(node.copy())
+        # Copy edges where both endpoints are in selected nodes
+        for edge in self.edges:
+            if edge['startNodeId'] in selected_node_ids and edge['endNodeId'] in selected_node_ids:
+                self.clipboard_edges.append(edge.copy())
+        self.update_status_temp(f"Copied {len(self.clipboard_nodes)} node(s)/junction(s) and {len(self.clipboard_edges)} edge(s)")
+        return 'break'
+
+    def handle_paste(self, event=None):
+        if not self.clipboard_nodes:
+            self.update_status_temp("Clipboard is empty")
+            return 'break'
+        OFFSET = 30
+        new_nodes = []
+        id_map = {}
+        for node in self.clipboard_nodes:
+            new_node = node.copy()
+            new_node['id'] = self.next_id
+            new_node['x'] += OFFSET
+            new_node['y'] += OFFSET
+            id_map[node['id']] = self.next_id
+            new_nodes.append(new_node)
+            self.next_id += 1
+        self.nodes.extend(new_nodes)
+        # Find the next available edge label number
+        used_numbers = set()
+        for edge in self.edges:
+            try:
+                num = int(edge['label'])
+                used_numbers.add(num)
+            except Exception:
+                continue
+        next_edge_num = 1
+        while next_edge_num in used_numbers:
+            next_edge_num += 1
+        # Paste edges, updating node IDs and incrementing label numbers
+        new_edges = []
+        for edge in self.clipboard_edges:
+            new_edge = edge.copy()
+            new_edge['id'] = self.next_id
+            new_edge['startNodeId'] = id_map.get(edge['startNodeId'], edge['startNodeId'])
+            new_edge['endNodeId'] = id_map.get(edge['endNodeId'], edge['endNodeId'])
+            # Assign incremented label number
+            new_edge['label'] = str(next_edge_num)
+            used_numbers.add(next_edge_num)
+            next_edge_num += 1
+            new_edges.append(new_edge)
+            self.next_id += 1
+        self.edges.extend(new_edges)
+        # Select newly pasted nodes and edges
+        self.selected_nodes = set(n['id'] for n in new_nodes)
+        self.selected_edges = set(e['id'] for e in new_edges)
+        self.draw()
+        self.update_status_temp(f"Pasted {len(new_nodes)} node(s)/junction(s) and {len(new_edges)} edge(s)")
+        return 'break'
 
 if __name__ == '__main__':
     root = tk.Tk()
