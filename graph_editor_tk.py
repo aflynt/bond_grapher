@@ -106,6 +106,7 @@ class GraphEditorApp:
         self.delete_btn = delete_btn
         
         tk.Button(toolbar, text="Clear All", width=12, command=self.clear_canvas).pack(pady=2)
+        tk.Button(toolbar, text="Clear Causality", width=12, command=self.clear_causality).pack(pady=2)
 
     def create_canvas(self):
         self.canvas = tk.Canvas(self.main_container)  # Changed from self.root to self.main_container
@@ -734,6 +735,12 @@ class GraphEditorApp:
             self.update_status()
             self.draw()
             self.update_status_temp("Canvas cleared")
+
+    def clear_causality(self):
+        for edge in self.edges:
+            edge['flow_side'] = FLOWSIDE.IDK.value
+        self.draw()
+        self.update_status_temp("Causality cleared (all flow sides set to IDK)")
 
     def update_button_colors(self):
         """Update the tool buttons' colors based on the current mode"""
