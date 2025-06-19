@@ -8,20 +8,6 @@ class FLOWSIDE(Enum):
     IDK =  0
     DEST = -1
 
-class YNI(Enum):
-    YES =  1
-    IDK =  0
-    NO  = -1
-
-class NODETYPE(Enum):
-    SE   = 0
-    SF   = 1
-    R    = 2
-    I    = 3
-    C    = 4
-    TF   = 5
-    ZERO = 6
-    ONE  = 7
 
 
 class FlyEdge:
@@ -51,14 +37,6 @@ class FlyEdge:
 
 
 
-class FlyNode:
-    def __init__(self, name:str, type:NODETYPE):
-        self.name = name
-        self.type = type
-        self.node = pydot.Node(self.name, shape="none", label=self.name)
-
-    def get_name(self):
-        return self.name
 
 
 class SymbolManager:
