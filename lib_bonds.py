@@ -98,18 +98,6 @@ def load_json_graph(fname) -> tuple[list[str], list[FlyEdge]]:
 
     return ns, es
 
-def append_unique_symbol(sym_list: list[sym.Symbol], new_sym: sym.Symbol) -> list[sym.Symbol]:
-    """
-    Add a symbol to a list if its name is not already in the list
-    Args:
-        sym_list: List of sympy symbols to add to
-        new_sym: New symbol to potentially add
-    """
-    existing_names = [s.name for s in sym_list]
-    if new_sym.name not in existing_names:
-        sym_list.append(new_sym)
-    
-    return sym_list
     
 
 
@@ -201,9 +189,6 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
                 raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
             
             extend_causality_to_node(idk_node_name, es)
-
-
-
 
 def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
     """
@@ -371,7 +356,6 @@ def assign_se_causality(es: list[FlyEdge] ):
         for CT in CHK_TYPES:
             if CT in dest_name:
                 extend_causality_to_node(e.dest, es)
-
 
 def assign_sf_causality(es: list[FlyEdge] ):
 
@@ -545,7 +529,6 @@ def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
                 print("AFTER R: All edges have their flow_side set.")
         else:
             print("AFTER SIC: All edges have their flow_side set.")
-
 
 def generate_symbols_for_SF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
