@@ -118,6 +118,8 @@ def extend_causality_to_node(node_name: str, es: list[FlyEdge]):
             assign_causality_to_nodetype_one(node_name, es)
         case "TF":
             assign_causality_to_nodetype_tf(node_name, es)
+        case "GY":
+            assign_causality_to_nodetype_gy(node_name, es)
         case _:
             pass
 
@@ -139,16 +141,12 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
     # check if the node is a TF type
     if NODE_ID in node_name.split("_")[0]:
         # extend causality to connected nodes
-        # type "TF" nodes are special, they have only two edges connected to them
-        # so one port can bring in the flow and the other port can take it out
 
-        # check if ony one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
+        # check if only one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
         known_edges = [e for e in connected_edges if e.flow_side != FLOWSIDE.IDK]
         if len(known_edges) == 1:
             known_edge = known_edges[0] # the known edge is the one that has flow_side set to SRC or DEST
-            known_edge_num = known_edge.num
-            idk_edge_num = [e.num for e in connected_edges if e.num != known_edge_num][0]
-            idk_edge = [e for e in connected_edges if e.num != known_edge_num][0] # the other edge is the one that has flow_side set to IDK
+            idk_edge = [e for e in connected_edges if e.num != known_edge.num][0] # the other edge is the one that has flow_side set to IDK
 
             # get the other node name from the idk_edge
             idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
@@ -156,35 +154,78 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
             is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
             is_node_name_in_src = node_name in known_edge.src
 
-            if is_flow_side_src and is_node_name_in_src:
-                # MODE A) the known edge is the source side, so the other edge must be the destination side
+            if (    is_flow_side_src and     is_node_name_in_src) or \
+               (not is_flow_side_src and not is_node_name_in_src):
+                # this edge brings in the effort, the other edge must take out the effort
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
 
-            elif not is_flow_side_src and is_node_name_in_src:
-                # MODE B) the known edge is the destination side, but the node_name is in the source side
-                # this means that the node_name is in the source side
+            elif (not is_flow_side_src and     is_node_name_in_src) or \
+                 (    is_flow_side_src and not is_node_name_in_src):
+                # this edge brings in the flow, the other edge must take out the flow
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
 
-            elif is_flow_side_src and not is_node_name_in_src:
-                # MODE C) the known edge is the source side, but the node_name is not in the source side
-                # this means that the node_name is in the destination side
+            else:
+                raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
+            
+            extend_causality_to_node(idk_node_name, es)
+
+def assign_causality_to_nodetype_gy(node_name: str, es: list[FlyEdge] ):
+    '''
+    Assign causality to connected nodes of type "GY"
+    '''
+    NODE_ID = "GY"
+
+    # GY nodes are special, they only have two edges connected to them
+    # if one edge brings in the flow, the other edge must take it out
+
+    # collect edges connected to the node
+    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+
+    if len(connected_edges) != 2:
+        raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
+
+    # check if the node is a GY type
+    if NODE_ID in node_name.split("_")[0]:
+        # extend causality to connected nodes
+        # type "GY" nodes are special, they have only two edges connected to them
+        # so one port can bring in the flow and the other port can take it out
+
+        # check if ony one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
+        known_edges = [e for e in connected_edges if e.flow_side != FLOWSIDE.IDK]
+        if len(known_edges) == 1:
+            known_edge = known_edges[0] # the known edge is the one that has flow_side set to SRC or DEST
+            idk_edge = [e for e in connected_edges if e.num != known_edge.num][0] # the other edge is the one that has flow_side set to IDK
+
+            # get the other node name from the idk_edge
+            idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
+
+            is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
+            is_node_name_in_src = node_name in known_edge.src
+
+            if  (    is_flow_side_src and     is_node_name_in_src) or \
+                (not is_flow_side_src and not is_node_name_in_src):
+                # MODE A) known_edge brings in the effort, other edge must take out the flow
+                # MODE D) known_edge brings in the effort, other edge must take out the flow
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
 
-            elif not is_flow_side_src and not is_node_name_in_src:
-                # MODE D) the known edge is the destination side, so the other edge must be the source side
+            elif (not is_flow_side_src and     is_node_name_in_src) or \
+                 (    is_flow_side_src and not is_node_name_in_src):
+                # MODE B) the known edge brings in flow, other edge must take out effort
+                # MODE C) the known edge brings in flow, other edge must take out effort
                 if node_name in idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
+
             else:
                 raise ValueError(f"Node {node_name} has an unknown flow_side configuration: {known_edge.flow_side} and {idk_edge.flow_side}")
             
@@ -683,6 +724,64 @@ def generate_symbols_for_R(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]
 
     return equations
 
+def generate_symbols_for_GY(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
+    """
+    Generate unique symbols for GY elements
+    This function will create symbols like GY_01, GY_02, ..., GY_99
+    """
+    NODE_ID = "GY"
+    # equation list
+    equations = []
+
+    # create a map from GY_name nodes to tuple of (edge_1, edge_2) pairs
+    gy_name_map = {}
+
+    for e in es:
+        is_GY_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+
+        if is_GY_element:
+            # this edge has a GY element
+            gy_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+
+            if gy_name not in gy_name_map:
+                gy_name_map[gy_name] = []
+
+            gy_name_map[gy_name].append(e)
+
+    # create symbols for each GY element
+    for gy_name, edges in gy_name_map.items():
+
+        assert len(edges) == 2, f"{NODE_ID} element {gy_name} must have exactly 2 edges connected to it, found {len(edges)}."
+
+
+        # deterine which edge has power flowing to the GY element
+        edge_a = edges[0]
+        edge_b = edges[1]
+
+        # assume edge_b is the first edge
+        edge_1 = edge_b
+        edge_2 = edge_a
+
+        if (edge_a.pwr_to_dest and gy_name in edge_a.dest) or (not edge_a.pwr_to_dest and gy_name in edge_a.src):
+            # edge_a is the first edge
+            edge_1 = edge_a
+            edge_2 = edge_b
+
+        gy_name_str = f"GY_{edge_1.num:02d}"
+        gy_sym = sm.add_symbol(gy_name_str)
+
+        e_1_nn = sm.get_symbol(f"e_{edge_1.num:02d}")
+        e_2_nn = sm.get_symbol(f"e_{edge_2.num:02d}")
+        f_1_nn = sm.get_symbol(f"f_{edge_1.num:02d}")
+        f_2_nn = sm.get_symbol(f"f_{edge_2.num:02d}")
+
+        # create equations for the GY element
+        eq_1 = sym.Eq(e_1_nn, sym.Mul(gy_sym ,f_2_nn))  # e_1 = GY_name_sym * f_2
+        eq_2 = sym.Eq(e_2_nn, sym.Mul(gy_sym ,f_1_nn))  # e_2 = GY_name_sym * f_1
+        equations.extend([eq_1, eq_2])
+
+    return equations 
+
 def generate_symbols_for_TF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]:
     """
     Generate unique symbols for TF elements
@@ -973,6 +1072,9 @@ def generate_symbols(es: list[FlyEdge]) -> tuple[list[sym.Eq], SymbolManager]:
     equations.extend(new_eqs)
 
     new_eqs= generate_symbols_for_TF(es, sm)
+    equations.extend(new_eqs)
+
+    new_eqs= generate_symbols_for_GY(es, sm)
     equations.extend(new_eqs)
 
     new_eqs= generate_equations_for_I_storage_elements(es, sm)
