@@ -66,6 +66,7 @@ class GraphEditorApp:
         # Add keyboard bindings
         self.root.bind('<Delete>', self.handle_delete_key)
         self.root.bind('<BackSpace>', self.handle_delete_key)
+        self.root.bind('<Escape>', self.handle_escape_key)
 
         # Clipboard for copy/paste
         self.clipboard_nodes = []
@@ -758,6 +759,11 @@ class GraphEditorApp:
         if self.selected_nodes or self.selected_edges:
             self.delete_selected()
             return 'break'  # Prevent the event from propagating
+
+    def handle_escape_key(self, event):
+        """Handle Escape key press - change to select mode"""
+        self.set_select()
+        return 'break'  # Prevent the event from propagating
 
     def get_next_edge_number(self):
         """Find the next available integer value for edge labels"""
