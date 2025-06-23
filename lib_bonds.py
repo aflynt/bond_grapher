@@ -133,13 +133,13 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
     # if one edge brings in the flow, the other edge must take it out
 
     # collect edges connected to the node
-    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+    connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
 
     if len(connected_edges) != 2:
         raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
 
     # check if the node is a TF type
-    if NODE_ID in node_name.split("_")[0]:
+    if NODE_ID == node_name.split("_")[0]:
         # extend causality to connected nodes
 
         # check if only one edge has e.flow_side set to FLOWSIDE.SRC or FLOWSIDE.DEST
@@ -149,15 +149,15 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
             idk_edge = [e for e in connected_edges if e.num != known_edge.num][0] # the other edge is the one that has flow_side set to IDK
 
             # get the other node name from the idk_edge
-            idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
+            idk_node_name = idk_edge.dest if node_name == idk_edge.src else idk_edge.src
 
             is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
-            is_node_name_in_src = node_name in known_edge.src
+            is_node_name_in_src = node_name == known_edge.src
 
             if (    is_flow_side_src and     is_node_name_in_src) or \
                (not is_flow_side_src and not is_node_name_in_src):
                 # this edge brings in the effort, the other edge must take out the effort
-                if node_name in idk_edge.src:
+                if node_name == idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
@@ -165,7 +165,7 @@ def assign_causality_to_nodetype_tf(node_name: str, es: list[FlyEdge] ):
             elif (not is_flow_side_src and     is_node_name_in_src) or \
                  (    is_flow_side_src and not is_node_name_in_src):
                 # this edge brings in the flow, the other edge must take out the flow
-                if node_name in idk_edge.src:
+                if node_name == idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
@@ -185,7 +185,7 @@ def assign_causality_to_nodetype_gy(node_name: str, es: list[FlyEdge] ):
     # if one edge brings in the flow, the other edge must take it out
 
     # collect edges connected to the node
-    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+    connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
 
     if len(connected_edges) != 2:
         raise ValueError(f"Node {node_name} has {len(connected_edges)} edges connected, but must have exactly 2.")
@@ -203,16 +203,16 @@ def assign_causality_to_nodetype_gy(node_name: str, es: list[FlyEdge] ):
             idk_edge = [e for e in connected_edges if e.num != known_edge.num][0] # the other edge is the one that has flow_side set to IDK
 
             # get the other node name from the idk_edge
-            idk_node_name = idk_edge.dest if node_name in idk_edge.src else idk_edge.src
+            idk_node_name = idk_edge.dest if node_name == idk_edge.src else idk_edge.src
 
             is_flow_side_src = known_edge.flow_side == FLOWSIDE.SRC
-            is_node_name_in_src = node_name in known_edge.src
+            is_node_name_in_src = node_name == known_edge.src
 
             if  (    is_flow_side_src and     is_node_name_in_src) or \
                 (not is_flow_side_src and not is_node_name_in_src):
                 # MODE A) known_edge brings in the effort, other edge must take out the flow
                 # MODE D) known_edge brings in the effort, other edge must take out the flow
-                if node_name in idk_edge.src:
+                if node_name == idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.SRC
                 else:
                     idk_edge.flow_side = FLOWSIDE.DEST
@@ -221,7 +221,7 @@ def assign_causality_to_nodetype_gy(node_name: str, es: list[FlyEdge] ):
                  (    is_flow_side_src and not is_node_name_in_src):
                 # MODE B) the known edge brings in flow, other edge must take out effort
                 # MODE C) the known edge brings in flow, other edge must take out effort
-                if node_name in idk_edge.src:
+                if node_name == idk_edge.src:
                     idk_edge.flow_side = FLOWSIDE.DEST
                 else:
                     idk_edge.flow_side = FLOWSIDE.SRC
@@ -236,18 +236,18 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
     Assign causality to connected nodes of type "0"
     """
     # collect edges connected to the node
-    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+    connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
 
     NODE_ID = "0"
 
     def extend_to_connections(node_name: str, strong_bond: FlyEdge, es: list[FlyEdge], extension_list: list[str] = []):
         
-        connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+        connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
 
         # extend causality to other edges connected to the node
         for e in connected_edges:
             if e.num != strong_bond.num and e.flow_side == FLOWSIDE.IDK:
-                if node_name in e.src:
+                if node_name == e.src:
                     e.flow_side = FLOWSIDE.DEST
                     extension_list.append(e.dest)
                 else:
@@ -260,7 +260,7 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
                 extend_causality_to_node(ext_node, es)
 
     # check if the node is a 0 type
-    if NODE_ID in node_name.split("_")[0]:
+    if NODE_ID == node_name.split("_")[0]:
 
         # extend causality to connected nodes
 
@@ -268,8 +268,8 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
         # so only one port can bring in the effort
 
         # check if the node has a strong bond
-        zero_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name in e.src
-                                         or e.flow_side == FLOWSIDE.DEST and node_name in e.dest]
+        zero_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name == e.src
+                                         or e.flow_side == FLOWSIDE.DEST and node_name == e.dest]
         if len(zero_strong_bond) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
@@ -284,12 +284,12 @@ def assign_causality_to_nodetype_zero(node_name: str, es: list[FlyEdge] ):
             if len(idk_bonds) == 1:
                 strong_bond = idk_bonds[0]
                 # Assign causality: decide direction based on node_name's position
-                if node_name in strong_bond.src:
+                if node_name == strong_bond.src:
                     strong_bond.flow_side = FLOWSIDE.SRC
                 else:
                     strong_bond.flow_side = FLOWSIDE.DEST
 
-                extension_list = [strong_bond.dest if node_name in strong_bond.src else strong_bond.src]
+                extension_list = [strong_bond.dest if node_name == strong_bond.src else strong_bond.src]
                 extend_to_connections(node_name, strong_bond, es, extension_list=extension_list)
 
 
@@ -301,16 +301,16 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
     Assign causality to connected nodes of type "1"
     """
     # collect edges connected to the node
-    connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+    connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
     NODE_ID = "1"
 
     def extend_to_connections(node_name: str, strong_bond: FlyEdge, es: list[FlyEdge], extension_list: list[str] = []):
 
-        connected_edges = [e for e in es if node_name in e.src or node_name in e.dest]
+        connected_edges = [e for e in es if node_name == e.src or node_name == e.dest]
 
         for e in connected_edges:
             if e.num != strong_bond.num and e.flow_side == FLOWSIDE.IDK:
-                if node_name in e.src:
+                if node_name == e.src:
                     e.flow_side = FLOWSIDE.SRC
                     extension_list.append(e.dest)
                 else:
@@ -323,15 +323,15 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
                 extend_causality_to_node(ext_node, es)
 
     # check if the node is a 1 type
-    if NODE_ID in node_name.split("_")[0]:
+    if NODE_ID == node_name.split("_")[0]:
 
         # extend causality to connected nodes
 
         # type "1" nodes are special, they have only one strong bond
         # so only one port can bring in the flow
         # check if the node has a strong bond
-        one_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name in e.dest
-                                 or e.flow_side == FLOWSIDE.DEST and node_name in e.src]
+        one_strong_bond = [e for e in connected_edges if e.flow_side == FLOWSIDE.SRC  and node_name == e.dest
+                                 or e.flow_side == FLOWSIDE.DEST and node_name == e.src]
         if len(one_strong_bond) > 1:
             raise ValueError(f"Node {node_name} has more than one strong bond, which is not allowed.")
 
@@ -347,12 +347,12 @@ def assign_causality_to_nodetype_one(node_name: str, es: list[FlyEdge] ):
             if len(idk_bonds) == 1:
                 strong_bond = idk_bonds[0]
                 # Assign causality: decide direction based on node_name's position
-                if node_name in strong_bond.src:
+                if node_name == strong_bond.src:
                     strong_bond.flow_side = FLOWSIDE.DEST
                 else:
                     strong_bond.flow_side = FLOWSIDE.SRC
 
-                extension_list = [strong_bond.dest if node_name in strong_bond.src else strong_bond.src]
+                extension_list = [strong_bond.dest if node_name == strong_bond.src else strong_bond.src]
                 extend_to_connections(node_name, strong_bond, es, extension_list=extension_list)
 
     else:
@@ -363,7 +363,7 @@ def assign_se_causality(es: list[FlyEdge] ):
     NODE_ID = "SE"
 
     # collect SE sources
-    se_srcs = [e for e in es if NODE_ID in e.src.split("_")[0]]
+    se_srcs = [e for e in es if NODE_ID == e.src.split("_")[0]]
 
     # assign required causality to SE sources
     # we are working with SE elements that are the source side of an edge
@@ -383,7 +383,7 @@ def assign_se_causality(es: list[FlyEdge] ):
         
 
     # collect SE destinations
-    se_dests = [e for e in es if NODE_ID in e.dest.split("_")[0]]
+    se_dests = [e for e in es if NODE_ID == e.dest.split("_")[0]]
     # assign required causality to SE destinations
 
     for e in se_dests:
@@ -403,7 +403,7 @@ def assign_sf_causality(es: list[FlyEdge] ):
     NODE_ID = "SF"
 
     # collect SF sources
-    sf_srcs = [e for e in es if NODE_ID in e.src.split("_")[0]]
+    sf_srcs = [e for e in es if NODE_ID == e.src.split("_")[0]]
 
     # assign required causality to SF sources
     # we are working with SF elements that are the source side of an edge
@@ -423,7 +423,7 @@ def assign_sf_causality(es: list[FlyEdge] ):
         
 
     # collect SF destinations
-    sf_dests = [e for e in es if NODE_ID in e.dest.split("_")[0]]
+    sf_dests = [e for e in es if NODE_ID == e.dest.split("_")[0]]
     # assign required causality to SF destinations
 
     for e in sf_dests:
@@ -444,7 +444,7 @@ def assign_I_causality(es: list[FlyEdge] ):
 
 
     # collect I sources
-    I_source_edges = [e for e in es if NODE_ID in e.src.split("_")[0]]
+    I_source_edges = [e for e in es if NODE_ID == e.src.split("_")[0]]
 
     # assign preferred (flow side) causality to I sources
     for I_edge in I_source_edges:
@@ -460,7 +460,7 @@ def assign_I_causality(es: list[FlyEdge] ):
                 extend_causality_to_node(I_edge.dest, es)
     
     # collect I destinations
-    I_dest_edges = [e for e in es if NODE_ID in e.dest.split("_")[0]]
+    I_dest_edges = [e for e in es if NODE_ID == e.dest.split("_")[0]]
     # assign preferred (flow side) causality to I destinations
     for I_edge in I_dest_edges:
         I_edge.flow_side = FLOWSIDE.DEST
@@ -479,7 +479,7 @@ def assign_C_causality(es: list[FlyEdge] ):
     NODE_ID = "C"
 
     # collect C sources
-    C_source_edges = [e for e in es if NODE_ID in e.src.split("_")[0]]
+    C_source_edges = [e for e in es if NODE_ID == e.src.split("_")[0]]
 
     # assign preferred (non-flow side) causality to C sources
     for C_edge in C_source_edges:
@@ -495,7 +495,7 @@ def assign_C_causality(es: list[FlyEdge] ):
                 extend_causality_to_node(C_edge.dest, es)
     
     # collect C destinations
-    C_dest_edges = [e for e in es if NODE_ID in e.dest.split("_")[0]]
+    C_dest_edges = [e for e in es if NODE_ID == e.dest.split("_")[0]]
     # assign preferred (non-flow side) causality to C destinations
     for C_edge in C_dest_edges:
         C_edge.flow_side = FLOWSIDE.SRC
@@ -514,7 +514,7 @@ def assign_R_causality(es: list[FlyEdge]):
     NODE_ID = "R"
 
     # collect R source nodes on edges
-    R_src_edges = [e for e in es if NODE_ID in e.src.split("_")[0] ]
+    R_src_edges = [e for e in es if NODE_ID == e.src.split("_")[0]]
 
     # assign arbitrary causality to R elements
     for R_edge in R_src_edges:
@@ -531,7 +531,7 @@ def assign_R_causality(es: list[FlyEdge]):
                     extend_causality_to_node(R_edge.dest, es)
 
     # collect R destination nodes on edges
-    R_dest_edges = [e for e in es if NODE_ID in e.dest.split("_")[0]]
+    R_dest_edges = [e for e in es if NODE_ID == e.dest.split("_")[0]]
 
     for R_edge in R_dest_edges:
         if R_edge.flow_side == FLOWSIDE.IDK:
@@ -604,9 +604,7 @@ def generate_symbols_for_SF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
     equations = []
 
     # get list of source of flow symbols
-    sf_nums = [e.num for e in es if 
-            NODE_ID in e.src.split("_")[0] or
-            NODE_ID in e.dest.split("_")[0]]
+    sf_nums = [e.num for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # equate the generic names to the unique names
     for sf_num in sf_nums:
@@ -630,9 +628,7 @@ def generate_symbols_for_SE(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
     equations = []
 
     # get list of source of effort symbols
-    se_nums = [e.num for e in es if 
-            NODE_ID in e.src.split("_")[0] or
-            NODE_ID in e.dest.split("_")[0]]
+    se_nums = [e.num for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # equate the generic names to the unique names
     for se_num in se_nums:
@@ -656,9 +652,7 @@ def generate_symbols_for_I(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]
     equations = []
 
     # get list of I symbols
-    I_nums = [e.num for e in es if 
-            NODE_ID in e.src.split("_")[0] or
-            NODE_ID in e.dest.split("_")[0]]
+    I_nums = [e.num for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # create symbol [I,p]_nn, then generate equation
     for i_num in I_nums:
@@ -683,9 +677,7 @@ def generate_symbols_for_C(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]
     equations = []
 
     # get list of C symbols
-    C_nums = [e.num for e in es if 
-            NODE_ID in e.src.split("_")[0] or
-            NODE_ID in e.dest.split("_")[0]]
+    C_nums = [e.num for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # create symbol [C,q]_nn, then generate equation
     for c_num in C_nums:
@@ -711,12 +703,12 @@ def generate_symbols_for_R(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq]
 
     for e in es:
 
-        is_R_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+        is_R_element = NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]
 
         if is_R_element:
             # this edge has an R element
 
-            is_R_on_src = NODE_ID in e.src.split("_")[0]
+            is_R_on_src = NODE_ID == e.src.split("_")[0]
 
             R_nn = sm.add_symbol(f"R_{e.num:02d}")
             e_nn = sm.add_symbol(f"e_{e.num:02d}")
@@ -761,11 +753,11 @@ def generate_symbols_for_GY(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
     gy_name_map = {}
 
     for e in es:
-        is_GY_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+        is_GY_element = NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]
 
         if is_GY_element:
             # this edge has a GY element
-            gy_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+            gy_name = e.src if NODE_ID == e.src.split("_")[0] else e.dest
 
             if gy_name not in gy_name_map:
                 gy_name_map[gy_name] = []
@@ -778,7 +770,7 @@ def generate_symbols_for_GY(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
         assert len(edges) == 2, f"{NODE_ID} element {gy_name} must have exactly 2 edges connected to it, found {len(edges)}."
 
 
-        # deterine which edge has power flowing to the GY element
+        # determine which edge has power flowing to the GY element
         edge_a = edges[0]
         edge_b = edges[1]
 
@@ -786,7 +778,7 @@ def generate_symbols_for_GY(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
         edge_1 = edge_b
         edge_2 = edge_a
 
-        if (edge_a.pwr_to_dest and gy_name in edge_a.dest) or (not edge_a.pwr_to_dest and gy_name in edge_a.src):
+        if (edge_a.pwr_to_dest and gy_name == edge_a.dest) or (not edge_a.pwr_to_dest and gy_name == edge_a.src):
             # edge_a is the first edge
             edge_1 = edge_a
             edge_2 = edge_b
@@ -819,11 +811,11 @@ def generate_symbols_for_TF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
     tf_name_map = {}
 
     for e in es:
-        is_TF_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+        is_TF_element = NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]
 
         if is_TF_element:
             # this edge has a TF element
-            tf_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+            tf_name = e.src if NODE_ID == e.src.split("_")[0] else e.dest
 
             if tf_name not in tf_name_map:
                 tf_name_map[tf_name] = []
@@ -836,7 +828,7 @@ def generate_symbols_for_TF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
         assert len(edges) == 2, f"{NODE_ID} element {tf_name} must have exactly 2 edges connected to it, found {len(edges)}."
 
 
-        # deterine which edge has power flowing to the TF element
+        # determine which edge has power flowing to the TF element
         edge_a = edges[0]
         edge_b = edges[1]
 
@@ -844,7 +836,7 @@ def generate_symbols_for_TF(es: list[FlyEdge], sm: SymbolManager) -> list[sym.Eq
         edge_1 = edge_b
         edge_2 = edge_a
 
-        if (edge_a.pwr_to_dest and tf_name in edge_a.dest) or (not edge_a.pwr_to_dest and tf_name in edge_a.src):
+        if (edge_a.pwr_to_dest and tf_name == edge_a.dest) or (not edge_a.pwr_to_dest and tf_name == edge_a.src):
             # edge_a is the first edge
             edge_1 = edge_a
             edge_2 = edge_b
@@ -874,13 +866,13 @@ def generate_symbols_for_zero_junctions(es: list[FlyEdge], sm: SymbolManager) ->
     equations = []
     NODE_ID = "0"
 
-    # get list of edges with one node as a zero-junction
-    zero_junction_edges = [e for e in es if NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]]
+    # get list of edges with a zero-junction node
+    zero_junction_edges = [e for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # create a map from J0_name node to list of edges, (edge_1, edge_2, ...)
     zero_junction_name_map = {}
     for e in zero_junction_edges:
-        j_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+        j_name = e.src if NODE_ID == e.src.split("_")[0] else e.dest
         if j_name not in zero_junction_name_map:
             zero_junction_name_map[j_name] = []
         zero_junction_name_map[j_name].append(e)
@@ -890,8 +882,8 @@ def generate_symbols_for_zero_junctions(es: list[FlyEdge], sm: SymbolManager) ->
 
         assert len(edges) > 1, f"Zero-junction {j_name} must have at least 2 edges connected to it, found {len(edges)}."
 
-        zero_strong_bond = [e for e in edges if e.flow_side == FLOWSIDE.SRC  and j_name in e.src
-                                         or e.flow_side == FLOWSIDE.DEST and j_name in e.dest]
+        zero_strong_bond = [e for e in edges if e.flow_side == FLOWSIDE.SRC  and j_name == e.src
+                                         or e.flow_side == FLOWSIDE.DEST and j_name == e.dest]
 
         if len(zero_strong_bond) > 1:
             raise ValueError(f"Node {j_name} has more than one strong bond, which is not allowed.")
@@ -952,12 +944,12 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge], sm: SymbolManager) -> 
     NODE_ID = "1"
 
     # get list of edges with one node as a one-junction
-    one_junction_edges = [e for e in es if NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]]
+    one_junction_edges = [e for e in es if NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]]
 
     # create a map from J1_name nodes to list of edges, (edge_1, edge_2, ...)
     one_junction_name_map = {}
     for e in one_junction_edges:
-        j_name = e.src if NODE_ID in e.src.split("_")[0] else e.dest
+        j_name = e.src if NODE_ID == e.src.split("_")[0] else e.dest
         if j_name not in one_junction_name_map:
             one_junction_name_map[j_name] = []
         one_junction_name_map[j_name].append(e)
@@ -967,8 +959,8 @@ def generate_symbols_for_one_junctions(es: list[FlyEdge], sm: SymbolManager) -> 
 
         assert len(edges) > 1, f"One-junction {j_name} must have at least 2 edges connected to it, found {len(edges)}."
 
-        one_strong_bonds = [e for e in edges if e.flow_side == FLOWSIDE.SRC and j_name in e.dest
-                        or e.flow_side == FLOWSIDE.DEST and j_name in e.src]
+        one_strong_bonds = [e for e in edges if e.flow_side == FLOWSIDE.SRC  and j_name == e.dest
+                                             or e.flow_side == FLOWSIDE.DEST and j_name == e.src]
 
         if len(one_strong_bonds) > 1:
             raise ValueError(f"Node {j_name} has more than one strong bond, which is not allowed.")
@@ -1026,7 +1018,7 @@ def generate_equations_for_I_storage_elements(es: list[FlyEdge], sm: SymbolManag
     equations = []
 
     for e in es:
-        is_I_storage_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+        is_I_storage_element = NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]
 
         if is_I_storage_element:
             # this edge has an I storage element
@@ -1050,7 +1042,7 @@ def generate_equations_for_C_storage_elements(es: list[FlyEdge], sm: SymbolManag
     equations = []
 
     for e in es:
-        is_C_storage_element = NODE_ID in e.src.split("_")[0] or NODE_ID in e.dest.split("_")[0]
+        is_C_storage_element = NODE_ID == e.src.split("_")[0] or NODE_ID == e.dest.split("_")[0]
 
         if is_C_storage_element:
             # this edge has an C storage element
