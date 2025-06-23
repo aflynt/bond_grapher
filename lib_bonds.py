@@ -546,6 +546,27 @@ def assign_R_causality(es: list[FlyEdge]):
                 if CT in src_name:
                     extend_causality_to_node(R_edge.src, es)
 
+def assign_arbitrary_causality(es: list[FlyEdge]):
+    """
+    Assign causality to edges that still have flow_side set to IDK.
+    This is a last resort to ensure all edges have a flow_side set.
+    """
+    for e in es:
+        if e.flow_side == FLOWSIDE.IDK:
+            # assign arbitrary causality
+            e.flow_side = FLOWSIDE.SRC
+
+
+            CHK_TYPES = ["0", "1", "TF"]
+
+            # Extend causality to connected nodes of type "0", "1", "TF"
+            for CT in CHK_TYPES:
+                if CT == e.src.split("_")[0]:
+                    extend_causality_to_node(e.src, es)
+                if CT == e.dest.split("_")[0]:
+                    extend_causality_to_node(e.dest, es)
+
+
 def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
 
     assign_se_causality(es)
@@ -559,6 +580,9 @@ def assign_causality_to_all_nodes(es: list[FlyEdge], report: bool = True):
         assign_R_causality(es)
 
     any_step_2 = any(e.flow_side == FLOWSIDE.IDK for e in es)
+
+    if any_step_2:
+        assign_arbitrary_causality(es)
 
     # all edges should now have their flow_side set
     if report:
