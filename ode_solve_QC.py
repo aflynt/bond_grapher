@@ -36,8 +36,8 @@ h = 0.25 # bump height (m)
 d = 1.00 # bump diameter (m)
 
 # forward velocity
-# U = 2.0 * 0.44704  # convert mph to m/s
-U = 30.0 * 0.44704  # convert mph to m/s
+U = 2.0 * 0.44704  # convert mph to m/s
+# U = 30.0 * 0.44704  # convert mph to m/s
 
 # INITIAL CONDITIONS
 q_09_ini  = m_s * g / k_s1  # initial sprung mass position
