@@ -48,6 +48,8 @@ class GraphEditorApp:
         self.box_select_start = None   # (x, y) in screen coordinates
         self.box_select_rect = None    # Flag to indicate if we're drawing a box
         self.box_select_last_pos = None  # Store last mouse position for box selection
+        self.edge_drag_start = None    # Store start node for edge dragging
+        self.edge_drag_end = None      # Store current mouse position for edge preview
 
         # Colors
         self.SELECTION_COLOR = '#3b82f6'  # blue-500
@@ -162,18 +164,30 @@ class GraphEditorApp:
     def set_select(self):
         self.current_mode = 'select'
         self.current_nodetype = None
+        # Clear edge state when switching modes
+        self.edge_start_node = None
+        self.edge_drag_start = None
+        self.edge_drag_end = None
         self.update_status()
         self.update_button_colors()
 
     def set_nodetype(self, nodetype):
         self.current_mode = 'nodetype'
         self.current_nodetype = nodetype
+        # Clear edge state when switching modes
+        self.edge_start_node = None
+        self.edge_drag_start = None
+        self.edge_drag_end = None
         self.update_status()
         self.update_button_colors()
 
     def set_edge(self):
         self.current_mode = 'edge'
         self.current_nodetype = None
+        # Clear edge state when switching to edge mode
+        self.edge_start_node = None
+        self.edge_drag_start = None
+        self.edge_drag_end = None
         self.update_status()
         self.update_button_colors()
 
@@ -182,7 +196,7 @@ class GraphEditorApp:
         mode_info = {
             'select': "Select Mode: Click to select nodes/edges. Drag to move nodes.",
             'nodetype': f"Add {self.current_nodetype.value} Mode: Click to add a new {self.current_nodetype.value} node." if self.current_nodetype else "Node Mode",
-            'edge': "Edge Mode: Click two nodes to create an edge between them."
+            'edge': "Edge Mode: Click and drag from one node to another to create an edge."
         }
 
         status_text = mode_info.get(self.current_mode, "Ready")# Add selection information if in select mode
@@ -199,10 +213,12 @@ class GraphEditorApp:
                     status_text += f" | Selected Edge: {selected_edges[0]['label']}"
                 else:
                     status_text += f" | Selected {len(selected_edges)} Edges"
-        
-        # Add edge creation progress if in edge mode
-        elif self.current_mode == 'edge' and self.edge_start_node:
-            status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
+          # Add edge creation progress if in edge mode
+        elif self.current_mode == 'edge':
+            if self.edge_drag_start:
+                status_text += f" | Dragging from: {self.edge_drag_start['label']} | Release on target node to create edge"
+            elif self.edge_start_node:
+                status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
 
         self.status_bar.config(text=status_text)
         self.update_button_colors()  # Update button colors on mode change
@@ -233,21 +249,16 @@ class GraphEditorApp:
             self.draw()
         elif self.current_mode == 'edge':
             node = self.get_node_at(x, y)
-            if not self.edge_start_node and node:
-                self.edge_start_node = node
-                self.update_status_temp(f"Selected start node: {node['label']}. Click end node.")
-            elif self.edge_start_node and node and node != self.edge_start_node:
-                next_number = self.get_next_edge_number()
-                self.edges.append({
-                    'id': self.next_id,
-                    'startNodeId': self.edge_start_node['id'],
-                    'endNodeId': node['id'],
-                    'label': next_number,
-                    'flow_side': FLOWSIDE.IDK.value
-                })
-                self.next_id += 1
-                self.draw()
+            if node:
+                # Start edge dragging from this node
+                self.edge_drag_start = node
+                self.edge_drag_end = (event.x, event.y)  # Store screen coordinates for preview
+                self.update_status_temp(f"Dragging edge from: {node['label']}. Drag to target node.")
+            elif not self.edge_start_node:
+                # If no node clicked and no previous start node, clear any existing edge state
                 self.edge_start_node = None
+                self.edge_drag_start = None
+                self.edge_drag_end = None
         else:  # 'select' mode
             # Check if Ctrl key is pressed for explicit multi-select behavior
             is_multi_select = event.state & 0x4  # 0x4 is the state for Control key
@@ -314,6 +325,10 @@ class GraphEditorApp:
                     node['x'] = x - offset_x
                     node['y'] = y - offset_y
             self.draw()
+        elif self.edge_drag_start and self.current_mode == 'edge':
+            # Update edge drag preview
+            self.edge_drag_end = (event.x, event.y)
+            self.draw()
         elif self.box_select_start and self.current_mode == 'select':
             # Update box selection
             self.box_select_last_pos = (event.x, event.y)
@@ -327,6 +342,29 @@ class GraphEditorApp:
         if self.is_dragging and self.current_mode == 'select':
             self.is_dragging = False
             self.drag_start_offsets.clear()
+        elif self.edge_drag_start and self.current_mode == 'edge':
+            # Check if we ended on a different node
+            x, y = self.screen_to_world(event.x, event.y)
+            end_node = self.get_node_at(x, y)
+            if end_node and end_node != self.edge_drag_start:
+                # Create the edge
+                next_number = self.get_next_edge_number()
+                self.edges.append({
+                    'id': self.next_id,
+                    'startNodeId': self.edge_drag_start['id'],
+                    'endNodeId': end_node['id'],
+                    'label': next_number,
+                    'flow_side': FLOWSIDE.IDK.value
+                })
+                self.next_id += 1
+                self.update_status_temp(f"Edge created from {self.edge_drag_start['label']} to {end_node['label']}")
+            else:
+                self.update_status_temp("Edge creation cancelled - must end on a different node")
+            
+            # Clean up edge drag state
+            self.edge_drag_start = None
+            self.edge_drag_end = None
+            self.draw()
         elif self.box_select_start and self.current_mode == 'select':
             # Get selection box coordinates in screen space
             x1, y1 = self.box_select_start
@@ -553,7 +591,7 @@ class GraphEditorApp:
                 self.draw_tee(x2, y2, angle, edge_color)
             
             # Draw label at midpoint
-            mx = (x1 + x2) / 2
+            mx = (x1 + x2) / 2 - 10  # Offset label slightly to the left of the midpoint
             my = (y1 + y2) / 2 - 10  # Offset label slightly above the line
             self.canvas.create_text(
                 mx, my,
@@ -584,8 +622,38 @@ class GraphEditorApp:
                 self.canvas.create_text(x, y+15, 
                                     text=node['label'], 
                                     font=("Inter", 10),
-                                    fill=node_color,
-                                    tags=("node_label", f"node_label_{node['id']}"))
+                                    fill=node_color,                                    tags=("node_label", f"node_label_{node['id']}"))        # Draw edge drag preview if in progress
+        if self.edge_drag_start and self.edge_drag_end and self.current_mode == 'edge':
+            # Get start node screen position
+            start_x, start_y = self.world_to_screen(self.edge_drag_start['x'], self.edge_drag_start['y'])
+            # End position is already in screen coordinates
+            end_x, end_y = self.edge_drag_end
+            
+            # Draw preview line with dashed style
+            self.canvas.create_line(
+                start_x, start_y, end_x, end_y,
+                fill='gray',
+                width=2,
+                dash=(5, 5),  # Dashed line for preview
+                tags=('edge_preview',)
+            )
+            
+            # Draw small arrowhead at end
+            angle = math.atan2(end_y - start_y, end_x - start_x)
+            headlen = 8
+            angle_wing = math.pi / 6
+            wing_x = end_x - headlen * math.cos(angle - angle_wing)
+            wing_y = end_y - headlen * math.sin(angle - angle_wing)
+            base_x = end_x - headlen * 0.5 * math.cos(angle)
+            base_y = end_y - headlen * 0.5 * math.sin(angle)
+            
+            self.canvas.create_polygon(
+                end_x, end_y,
+                wing_x, wing_y,
+                base_x, base_y,
+                fill='gray', outline='gray',
+                tags=('edge_preview_arrow',)
+            )
 
         # Re-draw selection box if it exists (must be drawn last to appear on top)
         if self.box_select_start and self.box_select_last_pos:
