@@ -184,9 +184,11 @@ class GraphEditorApp:
                 if len(selected_edges) == 1:
                     status_text += f" | Selected Edge: {selected_edges[0]['label']}"
                 else:
-                    status_text += f" | Selected {len(selected_edges)} Edges"        # Add edge creation progress if in edge mode
+                    status_text += f" | Selected {len(selected_edges)} Edges"
+        
+        # Add edge creation progress if in edge mode
         elif self.current_mode == 'edge' and self.edge_start_node:
-            status_text += f" | Start Node: {self.edge_start_node.get('label', 'Unknown')} | Click another node to complete the edge"
+            status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
 
         self.status_bar.config(text=status_text)
         self.update_button_colors()  # Update button colors on mode change
@@ -201,24 +203,20 @@ class GraphEditorApp:
         x, y = self.screen_to_world(event.x, event.y)
         if self.current_mode == 'nodetype' and self.current_nodetype:
             # Create a node with the current nodetype
-            default_label = self.current_nodetype.value
-            label = simpledialog.askstring(f"{self.current_nodetype.value} Node Label", 
-                                         f"Enter label for new {self.current_nodetype.value} node:", 
-                                         initialvalue=default_label)
-            if label:
-                # Determine if this is a junction (0 or 1) or regular node
-                node_type = 'junction' if self.current_nodetype.value in ['0', '1'] else 'node'
-                self.nodes.append({
-                    'id': self.next_id,
-                    'x': x,
-                    'y': y,
-                    'label': label,
-                    'type': node_type,
-                    'nodetype': self.current_nodetype.value
-                })
-                self.next_id += 1
-                self.update_status()
-                self.draw()
+            label = self.get_next_node_label(self.current_nodetype.value)
+            # Determine if this is a junction (0 or 1) or regular node
+            node_type = 'junction' if self.current_nodetype.value in ['0', '1'] else 'node'
+            self.nodes.append({
+                'id': self.next_id,
+                'x': x,
+                'y': y,
+                'label': label,
+                'type': node_type,
+                'nodetype': self.current_nodetype.value
+            })
+            self.next_id += 1
+            self.update_status()
+            self.draw()
         elif self.current_mode == 'edge':
             node = self.get_node_at(x, y)
             if not self.edge_start_node and node:
@@ -226,17 +224,15 @@ class GraphEditorApp:
                 self.update_status_temp(f"Selected start node: {node['label']}. Click end node.")
             elif self.edge_start_node and node and node != self.edge_start_node:
                 next_number = self.get_next_edge_number()
-                label = simpledialog.askstring("Edge Label", "Enter label for new edge:", initialvalue=next_number)
-                if label:
-                    self.edges.append({
-                        'id': self.next_id,
-                        'startNodeId': self.edge_start_node['id'],
-                        'endNodeId': node['id'],
-                        'label': label,
-                        'flow_side': FLOWSIDE.IDK.value
-                    })
-                    self.next_id += 1
-                    self.draw()
+                self.edges.append({
+                    'id': self.next_id,
+                    'startNodeId': self.edge_start_node['id'],
+                    'endNodeId': node['id'],
+                    'label': next_number,
+                    'flow_side': FLOWSIDE.IDK.value
+                })
+                self.next_id += 1
+                self.draw()
                 self.edge_start_node = None
         else:  # 'select' mode
             # Check if Ctrl key is pressed for explicit multi-select behavior
@@ -618,6 +614,11 @@ class GraphEditorApp:
                 self.edges = [dict(edge, flow_side=edge.get('flow_side', FLOWSIDE.IDK.value)) for edge in data['edges']]
                 self.next_id = data.get('next_id', self.next_id)
                 self.draw()
+    def get_unique_node_identifier(self, node):
+        """Generate a unique identifier for a node based on its type and id."""
+        nodetype = node.get('nodetype', 'SE')
+        id = node.get('id', 0)
+        return f"{nodetype}_{id:02d}"  # Format id with leading zeros for consistency
 
     def report(self):
         # Save the current graph to graph.json in the workspace
@@ -627,11 +628,7 @@ class GraphEditorApp:
         #     'next_id': self.next_id
         # }
 
-        ns = []
-        for node in self.nodes:
-            label = node.get("label", "")
-            ns.append(label)
-
+        ns = [ self.get_unique_node_identifier(node) for node in self.nodes ]  # Create unique identifiers for nodes
         ns = list(set(ns))  # Remove duplicates
 
         # create edge list
@@ -648,12 +645,12 @@ class GraphEditorApp:
             start_node_name = "IDK"
             for node in self.nodes:
                 if node.get("id", 0) == start_node_id:
-                    start_node_name = node.get("label", "")
+                    start_node_name = self.get_unique_node_identifier(node)
 
             end_node_name = "IDK"
             for node in self.nodes:
                 if node.get("id", 0) == end_node_id:
-                    end_node_name = node.get("label", "")
+                    end_node_name = self.get_unique_node_identifier(node)
 
             es.append(FlyEdge(label_num=num, src=start_node_name, dest=end_node_name, pwr_to_dest=1, flow_side=FLOWSIDE.IDK))
 
@@ -802,6 +799,37 @@ class GraphEditorApp:
         while next_num in used_numbers:
             next_num += 1
         return str(next_num)
+
+    def get_next_node_label(self, nodetype):
+        """Generate the next available label for a node of the given type"""
+        if nodetype in ['0', '1']:
+            # For junctions, just use the nodetype as the label
+            return nodetype
+        else:
+            # For other node types, find the next available number
+            used_labels = set()
+            for node in self.nodes:
+                if node.get('nodetype') == nodetype:
+                    label = node['label']
+                    # Extract number from end of label if it exists
+                    if label == nodetype:
+                        used_labels.add(1)
+                    elif label.startswith(nodetype):
+                        try:
+                            num = int(label[len(nodetype):])
+                            used_labels.add(num)
+                        except ValueError:
+                            continue
+            
+            # Find the first unused number starting from 1
+            next_num = 1
+            while next_num in used_labels:
+                next_num += 1
+            
+            if next_num == 1:
+                return nodetype
+            else:
+                return f"{nodetype}{next_num}"
 
     def show_context_menu(self, event):
         """Show context menu for right-clicked element"""
