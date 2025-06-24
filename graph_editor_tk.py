@@ -62,12 +62,26 @@ class GraphEditorApp:
         self.create_toolbar()
         self.create_canvas()
         self.setup_context_menu()
-        self.draw()
-
-        # Add keyboard bindings
+        self.draw()        # Add keyboard bindings
         self.root.bind('<Delete>', self.handle_delete_key)
         self.root.bind('<BackSpace>', self.handle_delete_key)
         self.root.bind('<Escape>', self.handle_escape_key)
+        self.root.bind('<KeyPress-e>', self.handle_e_key)
+        self.root.bind('<KeyPress-E>', self.handle_e_key)
+        self.root.bind('<KeyPress-f>', self.handle_f_key)
+        self.root.bind('<KeyPress-F>', self.handle_f_key)
+        self.root.bind('<KeyPress-i>', self.handle_i_key)
+        self.root.bind('<KeyPress-I>', self.handle_i_key)
+        self.root.bind('<KeyPress-c>', self.handle_c_key)
+        self.root.bind('<KeyPress-C>', self.handle_c_key)
+        self.root.bind('<KeyPress-r>', self.handle_r_key)
+        self.root.bind('<KeyPress-R>', self.handle_r_key)
+        self.root.bind('<KeyPress-g>', self.handle_g_key)
+        self.root.bind('<KeyPress-G>', self.handle_g_key)
+        self.root.bind('<KeyPress-t>', self.handle_t_key)
+        self.root.bind('<KeyPress-T>', self.handle_t_key)
+        self.root.bind('<KeyPress-0>', self.handle_0_key)
+        self.root.bind('<KeyPress-1>', self.handle_1_key)
 
         # Clipboard for copy/paste
         self.clipboard_nodes = []
@@ -782,6 +796,78 @@ class GraphEditorApp:
         """Handle Escape key press - change to select mode"""
         self.set_select()
         return 'break'  # Prevent the event from propagating
+
+    def handle_e_key(self, event):
+        """Handle 'e' or 'E' key press - change to 'Add SE' mode"""
+        # Find the SE nodetype in the NODETYPE enum
+        se_nodetype = None
+        for nodetype in NODETYPE:
+            if nodetype.value == 'SE':
+                se_nodetype = nodetype
+                break
+        
+        if se_nodetype:
+            self.set_nodetype(se_nodetype)
+        return 'break'  # Prevent the event from propagating
+
+    def handle_f_key(self, event):
+        """Handle 'f' or 'F' key press - change to 'Add SF' mode"""
+        # Find the SF nodetype in the NODETYPE enum
+        sf_nodetype = None
+        for nodetype in NODETYPE:
+            if nodetype.value == 'SF':
+                sf_nodetype = nodetype
+                break
+        
+        if sf_nodetype:
+            self.set_nodetype(sf_nodetype)
+        return 'break'  # Prevent the event from propagating
+
+    def handle_i_key(self, event):
+        """Handle 'i' or 'I' key press - change to 'Add I' mode"""
+        self._handle_nodetype_key('I')
+        return 'break'
+
+    def handle_c_key(self, event):
+        """Handle 'c' or 'C' key press - change to 'Add C' mode"""
+        self._handle_nodetype_key('C')
+        return 'break'
+
+    def handle_r_key(self, event):
+        """Handle 'r' or 'R' key press - change to 'Add R' mode"""
+        self._handle_nodetype_key('R')
+        return 'break'
+
+    def handle_g_key(self, event):
+        """Handle 'g' or 'G' key press - change to 'Add GY' mode"""
+        self._handle_nodetype_key('GY')
+        return 'break'
+
+    def handle_t_key(self, event):
+        """Handle 't' or 'T' key press - change to 'Add TF' mode"""
+        self._handle_nodetype_key('TF')
+        return 'break'
+
+    def handle_0_key(self, event):
+        """Handle '0' key press - change to 'Add 0' mode"""
+        self._handle_nodetype_key('0')
+        return 'break'
+
+    def handle_1_key(self, event):
+        """Handle '1' key press - change to 'Add 1' mode"""
+        self._handle_nodetype_key('1')
+        return 'break'
+
+    def _handle_nodetype_key(self, nodetype_value):
+        """Helper method to find and set nodetype by value"""
+        target_nodetype = None
+        for nodetype in NODETYPE:
+            if nodetype.value == nodetype_value:
+                target_nodetype = nodetype
+                break
+        
+        if target_nodetype:
+            self.set_nodetype(target_nodetype)
 
     def get_next_edge_number(self):
         """Find the next available integer value for edge labels"""
