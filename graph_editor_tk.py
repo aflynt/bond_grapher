@@ -64,12 +64,15 @@ class GraphEditorApp:
         self.create_toolbar()
         self.create_canvas()
         self.setup_context_menu()
-        self.draw()        # Add keyboard bindings
+        self.draw()        
+        # Add keyboard bindings
         self.root.bind('<Delete>', self.handle_delete_key)
         self.root.bind('<BackSpace>', self.handle_delete_key)
         self.root.bind('<Escape>', self.handle_escape_key)
         self.root.bind('<KeyPress-e>', self.handle_e_key)
         self.root.bind('<KeyPress-E>', self.handle_e_key)
+        self.root.bind('<KeyPress-s>', self.handle_s_key)
+        self.root.bind('<KeyPress-S>', self.handle_s_key)
         self.root.bind('<KeyPress-f>', self.handle_f_key)
         self.root.bind('<KeyPress-F>', self.handle_f_key)
         self.root.bind('<KeyPress-i>', self.handle_i_key)
@@ -866,7 +869,12 @@ class GraphEditorApp:
         return 'break'  # Prevent the event from propagating
 
     def handle_e_key(self, event):
-        """Handle 'e' or 'E' key press - change to 'Add SE' mode"""
+        """Handle 'e' or 'E' key press - change to 'Add Edge' mode"""
+        self.set_edge()
+        return 'break'  # Prevent the event from propagating
+
+    def handle_s_key(self, event):
+        """Handle 's' or 'S' key press - change to 'Add SE' mode"""
         # Find the SE nodetype in the NODETYPE enum
         se_nodetype = None
         for nodetype in NODETYPE:
