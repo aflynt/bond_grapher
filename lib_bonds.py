@@ -8,6 +8,24 @@ class FLOWSIDE(Enum):
     IDK =  0
     DEST = -1
 
+class NODETYPE(Enum):
+    SE   = "SE"
+    SF   = "SF"
+    I    = "I"
+    C    = "C"
+    R    = "R"
+    GY   = "GY"
+    TF   = "TF"
+    ZERO = "0"
+    ONE  = "1"
+
+    @classmethod
+    def from_string(cls, name: str):
+        for member in cls:
+            if member.value == name:
+                return member
+        raise ValueError(f"Unknown NODETYPE: {name}")
+
 
 
 class FlyEdge:
