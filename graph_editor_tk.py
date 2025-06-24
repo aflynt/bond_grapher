@@ -5,7 +5,7 @@ from PIL import Image
 import io
 import math
 import lib_bonds as lb
-from lib_bonds import FLOWSIDE, FlyEdge
+from lib_bonds import FLOWSIDE, FlyEdge, NODETYPE
 
 class GraphEditorApp:
     def __init__(self, root):
@@ -33,7 +33,8 @@ class GraphEditorApp:
         self.nodes = []  # list of dicts: {id, x, y, label, type}
         self.edges = []  # list of dicts: {id, startNodeId, endNodeId, label}
         self.next_id = 1
-        self.current_mode = 'select'  # 'select', 'node', 'junction', 'edge'
+        self.current_mode = 'select'  # 'select', 'edge', or NODETYPE.value
+        self.current_nodetype = None  # Will store the NODETYPE when in node creation mode
         self.edge_start_node = None
         self.selected_nodes = set()  # Set of selected node IDs
         self.selected_edges = set()  # Set of selected edge IDs
@@ -70,8 +71,7 @@ class GraphEditorApp:
 
         # Clipboard for copy/paste
         self.clipboard_nodes = []
-        self.clipboard_edges = []  # Added clipboard_edges to store copied edges
-        # Keyboard bindings for copy/paste
+        self.clipboard_edges = []  # Added clipboard_edges to store copied edges        # Keyboard bindings for copy/paste
         self.root.bind('<Control-c>', self.handle_copy)
         self.root.bind('<Control-C>', self.handle_copy)
         self.root.bind('<Control-v>', self.handle_paste)
@@ -82,16 +82,26 @@ class GraphEditorApp:
         toolbar.pack(side=tk.LEFT, fill=tk.Y)
           # Tool buttons
         self.tool_buttons = []
-        for text, cmd in [
-            ("Select", self.set_select),
-            ("Add Node", self.set_node),
-            ("Add Junction", self.set_junction),
-            ("Add Edge", self.set_edge)
-        ]:
-            btn = tk.Button(toolbar, text=text, width=12, command=cmd,
+        
+        # Select button
+        btn = tk.Button(toolbar, text="Select", width=12, command=self.set_select,
+                      bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
+        btn.pack(pady=2)
+        self.tool_buttons.append(btn)
+        
+        # Node type buttons - one for each NODETYPE
+        for nodetype in NODETYPE:
+            btn = tk.Button(toolbar, text=f"Add {nodetype.value}", width=12, 
+                          command=lambda nt=nodetype: self.set_nodetype(nt),
                           bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
             btn.pack(pady=2)
             self.tool_buttons.append(btn)
+        
+        # Edge button
+        btn = tk.Button(toolbar, text="Add Edge", width=12, command=self.set_edge,
+                      bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
+        btn.pack(pady=2)
+        self.tool_buttons.append(btn)
         
         # Set initial button state for 'select' mode
         self.tool_buttons[0].config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
@@ -137,21 +147,19 @@ class GraphEditorApp:
 
     def set_select(self):
         self.current_mode = 'select'
+        self.current_nodetype = None
         self.update_status()
         self.update_button_colors()
 
-    def set_node(self):
-        self.current_mode = 'node'
-        self.update_status()
-        self.update_button_colors()
-
-    def set_junction(self):
-        self.current_mode = 'junction'
+    def set_nodetype(self, nodetype):
+        self.current_mode = 'nodetype'
+        self.current_nodetype = nodetype
         self.update_status()
         self.update_button_colors()
 
     def set_edge(self):
         self.current_mode = 'edge'
+        self.current_nodetype = None
         self.update_status()
         self.update_button_colors()
 
@@ -159,12 +167,11 @@ class GraphEditorApp:
         """Update the status bar text based on current state."""
         mode_info = {
             'select': "Select Mode: Click to select nodes/edges. Drag to move nodes.",
-            'node': "Node Mode: Click to add a new node.",
-            'junction': "Junction Mode: Click to add a new junction.",
+            'nodetype': f"Add {self.current_nodetype.value} Mode: Click to add a new {self.current_nodetype.value} node." if self.current_nodetype else "Node Mode",
             'edge': "Edge Mode: Click two nodes to create an edge between them."
         }
 
-        status_text = mode_info.get(self.current_mode, "Ready")        # Add selection information if in select mode
+        status_text = mode_info.get(self.current_mode, "Ready")# Add selection information if in select mode
         if self.current_mode == 'select':
             if self.selected_nodes:
                 selected_nodes = [node for node in self.nodes if node['id'] in self.selected_nodes]
@@ -177,10 +184,9 @@ class GraphEditorApp:
                 if len(selected_edges) == 1:
                     status_text += f" | Selected Edge: {selected_edges[0]['label']}"
                 else:
-                    status_text += f" | Selected {len(selected_edges)} Edges"
-        # Add edge creation progress if in edge mode
+                    status_text += f" | Selected {len(selected_edges)} Edges"        # Add edge creation progress if in edge mode
         elif self.current_mode == 'edge' and self.edge_start_node:
-            status_text += f" | Start Node: {self.edge_start_node['label']} | Click another node to complete the edge"
+            status_text += f" | Start Node: {self.edge_start_node.get('label', 'Unknown')} | Click another node to complete the edge"
 
         self.status_bar.config(text=status_text)
         self.update_button_colors()  # Update button colors on mode change
@@ -188,31 +194,27 @@ class GraphEditorApp:
     def update_status_temp(self, message, duration=3000):
         """Update status bar with a message that disappears after duration (ms)"""
         self.status_bar.config(text=message)
-        # Schedule reset of status bar        self.root.after(duration, lambda: self.status_bar.config(text="Ready"))
+        # Schedule reset of status bar
+        self.root.after(duration, lambda: self.status_bar.config(text="Ready"))
 
     def on_mouse_down(self, event):
         x, y = self.screen_to_world(event.x, event.y)
-        if self.current_mode == 'node':
-            label = simpledialog.askstring("Node Label", "Enter label for new node:")
+        if self.current_mode == 'nodetype' and self.current_nodetype:
+            # Create a node with the current nodetype
+            default_label = self.current_nodetype.value
+            label = simpledialog.askstring(f"{self.current_nodetype.value} Node Label", 
+                                         f"Enter label for new {self.current_nodetype.value} node:", 
+                                         initialvalue=default_label)
             if label:
+                # Determine if this is a junction (0 or 1) or regular node
+                node_type = 'junction' if self.current_nodetype.value in ['0', '1'] else 'node'
                 self.nodes.append({
                     'id': self.next_id,
                     'x': x,
                     'y': y,
                     'label': label,
-                    'type': 'node'
-                })
-                self.next_id += 1
-                self.update_status()
-                self.draw()
-        elif self.current_mode == 'junction':
-            label = simpledialog.askstring("Junction Label", "Enter label for new junction:")
-            if label:
-                self.nodes.append({                    'id': self.next_id,
-                    'x': x,
-                    'y': y,
-                    'label': label,
-                    'type': 'junction'
+                    'type': node_type,
+                    'nodetype': self.current_nodetype.value
                 })
                 self.next_id += 1
                 self.update_status()
@@ -599,7 +601,19 @@ class GraphEditorApp:
         if path:
             with open(path) as f:
                 data = json.load(f)
-                self.nodes = data['nodes']
+                # Ensure all nodes have 'nodetype' set, default based on type or label
+                self.nodes = []
+                for node in data['nodes']:
+                    if 'nodetype' not in node:
+                        # Try to infer nodetype from label for backward compatibility
+                        label = node.get('label', '')
+                        try:
+                            node['nodetype'] = NODETYPE.from_string(label).value
+                        except ValueError:
+                            # Default to SE for regular nodes, 0 for junctions
+                            node['nodetype'] = '0' if node.get('type') == 'junction' else 'SE'
+                    self.nodes.append(node)
+                
                 # Ensure all edges have 'flow_side' set, default to 0 (IDK)
                 self.edges = [dict(edge, flow_side=edge.get('flow_side', FLOWSIDE.IDK.value)) for edge in data['edges']]
                 self.next_id = data.get('next_id', self.next_id)
@@ -745,14 +759,21 @@ class GraphEditorApp:
 
     def update_button_colors(self):
         """Update the tool buttons' colors based on the current mode"""
-        mode_to_index = {'select': 0, 'node': 1, 'junction': 2, 'edge': 3}
-        current_index = mode_to_index.get(self.current_mode, -1)
+        # Reset all buttons to inactive
+        for btn in self.tool_buttons:
+            btn.config(bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
         
-        for i, btn in enumerate(self.tool_buttons):
-            if i == current_index:
-                btn.config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
-            else:
-                btn.config(bg=self.INACTIVE_BTN_BG, fg=self.INACTIVE_BTN_FG)
+        # Button 0 is Select
+        if self.current_mode == 'select':
+            self.tool_buttons[0].config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
+        # Buttons 1-9 are for nodetypes (in NODETYPE enum order)
+        elif self.current_mode == 'nodetype' and self.current_nodetype:
+            nodetype_index = list(NODETYPE).index(self.current_nodetype) + 1
+            if 0 < nodetype_index < len(self.tool_buttons):
+                self.tool_buttons[nodetype_index].config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
+        # Last button is Add Edge
+        elif self.current_mode == 'edge':
+            self.tool_buttons[-1].config(bg=self.ACTIVE_BTN_BG, fg=self.ACTIVE_BTN_FG)
 
     def handle_delete_key(self, event):
         """Handle Delete or Backspace key press"""
